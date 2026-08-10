@@ -27,6 +27,29 @@ git remote add origin https://github.com/SEU_USUARIO/portal-ctv.git
 git push -u origin main
 ```
 
+## Publicar no Netlify
+
+### Opção A — conectado ao Git (recomendado, deploy automático a cada push)
+
+1. Suba este projeto para o GitHub (veja seção acima).
+2. Em https://app.netlify.com, clique em **Add new site → Import an existing project**.
+3. Escolha o repositório `portal-ctv`.
+4. O Netlify já detecta as configurações do `netlify.toml`:
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+5. Clique em **Deploy**. A cada `git push`, o site atualiza sozinho.
+
+### Opção B — deploy manual (drag and drop, sem Git)
+
+1. No seu computador, dentro da pasta do projeto:
+   ```bash
+   npm install
+   npm run build
+   ```
+2. Isso cria a pasta `dist/`.
+3. Acesse https://app.netlify.com/drop e arraste a pasta `dist` para lá.
+4. O site fica no ar na hora, com uma URL tipo `nome-aleatorio.netlify.app`.
+
 ## Publicar o site (GitHub Pages) — automático
 
 Este projeto já vem com um workflow (`.github/workflows/deploy.yml`) que builda e publica
@@ -47,4 +70,3 @@ Senha padrão: `ctv2024` — altere em `src/App.tsx` (constante `ADMIN_PASSWORD`
 
 Os agendamentos, terapias e terapeutas ficam salvos no `localStorage` do navegador de cada visitante.
 Use a aba **Admin → Backup** para exportar/importar os dados em JSON.
-"# ctv"  
