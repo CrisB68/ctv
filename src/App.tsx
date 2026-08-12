@@ -251,6 +251,60 @@ function genId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Corrige registros de terapeuta salvos por uma versão antiga do app (que tinha
+ * `bio` e `days` em vez de `photoUrl`/`availability`), evitando tela branca quando
+ * o navegador do visitante ainda tem esse formato antigo salvo no localStorage.
+ */
+function normalizeTherapist(raw: any): Therapist {
+  return {
+    id: raw?.id ?? genId("pr"),
+    name: raw?.name ?? "",
+    photoUrl: typeof raw?.photoUrl === "string" ? raw.photoUrl : "",
+    specialties: Array.isArray(raw?.specialties) ? raw.specialties : [],
+    availability:
+      raw?.availability && typeof raw.availability === "object" && !Array.isArray(raw.availability)
+        ? raw.availability
+        : {},
+    hidden: !!raw?.hidden,
+    isSeed: raw?.isSeed,
+  };
+}
+
+/** Corrige registros de terapia salvos por versões antigas, garantindo campos mínimos válidos. */
+function normalizeTherapy(raw: any): Therapy {
+  return {
+    id: raw?.id ?? genId("th"),
+    name: raw?.name ?? "",
+    icon: raw?.icon && ICONS[raw.icon as IconKey] ? raw.icon : "sparkles",
+    summary: raw?.summary ?? "",
+    description: raw?.description ?? "",
+    benefits: Array.isArray(raw?.benefits) ? raw.benefits : [],
+    duration: raw?.duration ?? "",
+    contribution: raw?.contribution ?? "",
+    modality: raw?.modality === "presencial" || raw?.modality === "distancia" ? raw.modality : "ambas",
+    hidden: !!raw?.hidden,
+    isSeed: raw?.isSeed,
+  };
+}
+
+/** Corrige registros de agendamento salvos por versões antigas, garantindo campos mínimos válidos. */
+function normalizeAppointment(raw: any): Appointment {
+  return {
+    id: raw?.id ?? genId("ap"),
+    therapyId: raw?.therapyId ?? "",
+    therapistId: raw?.therapistId ?? "",
+    date: raw?.date ?? "",
+    time: raw?.time ?? "",
+    modality: raw?.modality === "distancia" ? "distancia" : "presencial",
+    clientName: raw?.clientName ?? "",
+    clientPhone: raw?.clientPhone ?? "",
+    status: ["pendente", "confirmado", "cancelado"].includes(raw?.status) ? raw.status : "pendente",
+    createdAt: raw?.createdAt ?? new Date().toISOString(),
+    isSeed: raw?.isSeed,
+  };
+}
+
 /* =========================================================================
    PERSISTÊNCIA — localStorage (dados salvos no navegador de cada visitante)
    ========================================================================= */
@@ -2013,9 +2067,23 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
    APP
    ========================================================================= */
 export default function App() {
-  const [therapies, setTherapies] = usePersistedState<Therapy[]>("ctv:therapies", SEED_THERAPIES);
-  const [therapists, setTherapists] = usePersistedState<Therapist[]>("ctv:therapists", SEED_THERAPISTS);
-  const [appointments, setAppointments] = usePersistedState<Appointment[]>("ctv:appointments", SEED_APPOINTMENTS);
+  const [therapiesRaw, setTherapies] = usePersistedState<Therapy[]>("ctv:therapies", SEED_THERAPIES);
+  const [therapistsRaw, setTherapists] = usePersistedState<Therapist[]>("ctv:therapists", SEED_THERAPISTS);
+  const [appointmentsRaw, setAppointments] = usePersistedState<Appointment[]>("ctv:appointments", SEED_APPOINTMENTS);
+
+  // Corrige dados salvos por uma versão anterior do app, evitando tela branca.
+  const therapies = useMemo(
+    () => (Array.isArray(therapiesRaw) ? therapiesRaw.map(normalizeTherapy) : SEED_THERAPIES),
+    [therapiesRaw]
+  );
+  const therapists = useMemo(
+    () => (Array.isArray(therapistsRaw) ? therapistsRaw.map(normalizeTherapist) : SEED_THERAPISTS),
+    [therapistsRaw]
+  );
+  const appointments = useMemo(
+    () => (Array.isArray(appointmentsRaw) ? appointmentsRaw.map(normalizeAppointment) : SEED_APPOINTMENTS),
+    [appointmentsRaw]
+  );
 
   const [view, setView] = useState<View>("inicio");
   const [presetTherapyId, setPresetTherapyId] = useState<string | null>(null);
