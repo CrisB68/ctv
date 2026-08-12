@@ -189,35 +189,6 @@ const SEED_THERAPISTS: Therapist[] = [
   },
 ];
 
-const SEED_APPOINTMENTS: Appointment[] = [
-  {
-    id: "ap-seed-1",
-    therapyId: "th-reiki",
-    therapistId: "pr-ana",
-    date: nextDateForWeekday("Segunda"),
-    time: "10:00",
-    modality: "presencial",
-    clientName: "Fernanda Alves",
-    clientPhone: "5535988887777",
-    status: "confirmado",
-    createdAt: new Date().toISOString(),
-    isSeed: true,
-  },
-  {
-    id: "ap-seed-2",
-    therapyId: "th-cristais",
-    therapistId: "pr-carlos",
-    date: nextDateForWeekday("Terça"),
-    time: "16:00",
-    modality: "distancia",
-    clientName: "Roberto Nunes",
-    clientPhone: "5535977776666",
-    status: "pendente",
-    createdAt: new Date().toISOString(),
-    isSeed: true,
-  },
-];
-
 const WEEKDAY_JS_INDEX: Record<string, number> = {
   Domingo: 0,
   Segunda: 1,
@@ -246,6 +217,35 @@ function weekdayNameFromDate(dateStr: string): string | null {
   const name = entry?.[0] ?? null;
   return name && WEEKDAYS.includes(name) ? name : null;
 }
+
+const SEED_APPOINTMENTS: Appointment[] = [
+  {
+    id: "ap-seed-1",
+    therapyId: "th-reiki",
+    therapistId: "pr-ana",
+    date: nextDateForWeekday("Segunda"),
+    time: "10:00",
+    modality: "presencial",
+    clientName: "Fernanda Alves",
+    clientPhone: "5535988887777",
+    status: "confirmado",
+    createdAt: new Date().toISOString(),
+    isSeed: true,
+  },
+  {
+    id: "ap-seed-2",
+    therapyId: "th-cristais",
+    therapistId: "pr-carlos",
+    date: nextDateForWeekday("Terça"),
+    time: "16:00",
+    modality: "distancia",
+    clientName: "Roberto Nunes",
+    clientPhone: "5535977776666",
+    status: "pendente",
+    createdAt: new Date().toISOString(),
+    isSeed: true,
+  },
+];
 
 function genId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
