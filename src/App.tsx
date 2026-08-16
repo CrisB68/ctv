@@ -5,9 +5,8 @@ import {
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
   Stethoscope, Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
-  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays
+  CalendarCheck, CalendarX, CalendarClock, Menu
 } from "lucide-react";
-import logoCtv from "./assets/logo-ctv.png";
 
 /* =========================================================================
    TEMA — Portal CTV (Centro de Terapias Vibracionais)
@@ -54,9 +53,18 @@ interface Therapy {
 interface Therapist {
   id: string;
   name: string;
-  photoUrl?: string;
+  bio: string;
   specialties: string[]; // therapy ids
-  availability: Record<string, string[]>; // dia da semana -> lista de horários (ex.: "Segunda": ["09:00","10:00"])
+  days: string[]; // weekday names
+  hidden: boolean;
+  photo?: string; // data URL (base64), enviada pelo Admin
+  isSeed?: boolean;
+}
+
+interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
   hidden: boolean;
   isSeed?: boolean;
 }
@@ -151,79 +159,38 @@ const SEED_THERAPISTS: Therapist[] = [
   {
     id: "pr-ana",
     name: "Ana Beatriz Souza",
-    photoUrl: "",
+    bio: "Terapeuta holística há 12 anos, especialista em Reiki e Florais de Bach, com escuta acolhedora e presença serena.",
     specialties: ["th-reiki", "th-florais"],
-    availability: {
-      Segunda: ["09:00", "10:00", "11:00"],
-      Quarta: ["14:00", "15:00", "16:00"],
-      Sexta: ["09:00", "10:00"],
-    },
+    days: ["Segunda", "Quarta", "Sexta"],
     hidden: false,
     isSeed: true,
   },
   {
     id: "pr-carlos",
     name: "Carlos Henrique Lima",
-    photoUrl: "",
+    bio: "Facilitador sistêmico dedicado à Constelação Familiar e à Sonoterapia, conduzindo vivências profundas com sensibilidade.",
     specialties: ["th-constelacao", "th-cristais"],
-    availability: {
-      Terça: ["14:00", "16:00", "18:00"],
-      Quinta: ["09:00", "11:00"],
-      Sábado: ["09:00", "10:00", "11:00"],
-    },
+    days: ["Terça", "Quinta", "Sábado"],
     hidden: false,
     isSeed: true,
   },
   {
     id: "pr-mariana",
     name: "Mariana Costa",
-    photoUrl: "",
+    bio: "Terapeuta integrativa, une Reiki, Constelação e Florais para cuidar do ser em suas várias camadas.",
     specialties: ["th-reiki", "th-constelacao", "th-florais"],
-    availability: {
-      Segunda: ["14:00", "15:00"],
-      Terça: ["09:00", "10:00"],
-      Quinta: ["14:00", "15:00", "16:00"],
-    },
+    days: ["Segunda", "Terça", "Quinta"],
     hidden: false,
     isSeed: true,
   },
 ];
-
-const WEEKDAY_JS_INDEX: Record<string, number> = {
-  Domingo: 0,
-  Segunda: 1,
-  Terça: 2,
-  Quarta: 3,
-  Quinta: 4,
-  Sexta: 5,
-  Sábado: 6,
-};
-
-/** Retorna a data (YYYY-MM-DD) da próxima ocorrência do dia da semana informado. */
-function nextDateForWeekday(dayName: string): string {
-  const targetIdx = WEEKDAY_JS_INDEX[dayName] ?? 1;
-  const d = new Date();
-  const diff = (targetIdx - d.getDay() + 7) % 7 || 7;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Dado um YYYY-MM-DD, retorna o nome do dia da semana (em português) ou null se for domingo (clínica fechada). */
-function weekdayNameFromDate(dateStr: string): string | null {
-  if (!dateStr) return null;
-  const d = new Date(dateStr + "T00:00:00");
-  const idx = d.getDay();
-  const entry = Object.entries(WEEKDAY_JS_INDEX).find(([, v]) => v === idx);
-  const name = entry?.[0] ?? null;
-  return name && WEEKDAYS.includes(name) ? name : null;
-}
 
 const SEED_APPOINTMENTS: Appointment[] = [
   {
     id: "ap-seed-1",
     therapyId: "th-reiki",
     therapistId: "pr-ana",
-    date: nextDateForWeekday("Segunda"),
+    date: nextDate(2),
     time: "10:00",
     modality: "presencial",
     clientName: "Fernanda Alves",
@@ -236,7 +203,7 @@ const SEED_APPOINTMENTS: Appointment[] = [
     id: "ap-seed-2",
     therapyId: "th-cristais",
     therapistId: "pr-carlos",
-    date: nextDateForWeekday("Terça"),
+    date: nextDate(4),
     time: "16:00",
     modality: "distancia",
     clientName: "Roberto Nunes",
@@ -247,62 +214,45 @@ const SEED_APPOINTMENTS: Appointment[] = [
   },
 ];
 
+const SEED_FAQS: FAQItem[] = [
+  {
+    id: "faq-1",
+    question: "Preciso agendar com antecedência?",
+    answer: "Sim, recomendamos agendar com pelo menos 2 dias de antecedência para garantir o horário com o terapeuta de sua preferência.",
+    hidden: false,
+    isSeed: true,
+  },
+  {
+    id: "faq-2",
+    question: "As sessões a distância funcionam mesmo?",
+    answer: "Sim! As terapias vibracionais como Reiki e Florais de Bach têm excelentes resultados também à distância, pois trabalham no campo energético, que não depende de proximidade física.",
+    hidden: false,
+    isSeed: true,
+  },
+  {
+    id: "faq-3",
+    question: "Como funciona a contribuição consciente?",
+    answer: "É um valor sugerido para cada terapia, mas conversamos abertamente caso você esteja passando por dificuldades financeiras — o cuidado vem sempre em primeiro lugar.",
+    hidden: false,
+    isSeed: true,
+  },
+  {
+    id: "faq-4",
+    question: "Posso cancelar ou remarcar minha sessão?",
+    answer: "Claro. Basta entrar em contato pelo WhatsApp com pelo menos 12 horas de antecedência para reagendarmos sem custo.",
+    hidden: false,
+    isSeed: true,
+  },
+];
+
+function nextDate(daysAhead: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return d.toISOString().slice(0, 10);
+}
+
 function genId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * Corrige registros de terapeuta salvos por uma versão antiga do app (que tinha
- * `bio` e `days` em vez de `photoUrl`/`availability`), evitando tela branca quando
- * o navegador do visitante ainda tem esse formato antigo salvo no localStorage.
- */
-function normalizeTherapist(raw: any): Therapist {
-  return {
-    id: raw?.id ?? genId("pr"),
-    name: raw?.name ?? "",
-    photoUrl: typeof raw?.photoUrl === "string" ? raw.photoUrl : "",
-    specialties: Array.isArray(raw?.specialties) ? raw.specialties : [],
-    availability:
-      raw?.availability && typeof raw.availability === "object" && !Array.isArray(raw.availability)
-        ? raw.availability
-        : {},
-    hidden: !!raw?.hidden,
-    isSeed: raw?.isSeed,
-  };
-}
-
-/** Corrige registros de terapia salvos por versões antigas, garantindo campos mínimos válidos. */
-function normalizeTherapy(raw: any): Therapy {
-  return {
-    id: raw?.id ?? genId("th"),
-    name: raw?.name ?? "",
-    icon: raw?.icon && ICONS[raw.icon as IconKey] ? raw.icon : "sparkles",
-    summary: raw?.summary ?? "",
-    description: raw?.description ?? "",
-    benefits: Array.isArray(raw?.benefits) ? raw.benefits : [],
-    duration: raw?.duration ?? "",
-    contribution: raw?.contribution ?? "",
-    modality: raw?.modality === "presencial" || raw?.modality === "distancia" ? raw.modality : "ambas",
-    hidden: !!raw?.hidden,
-    isSeed: raw?.isSeed,
-  };
-}
-
-/** Corrige registros de agendamento salvos por versões antigas, garantindo campos mínimos válidos. */
-function normalizeAppointment(raw: any): Appointment {
-  return {
-    id: raw?.id ?? genId("ap"),
-    therapyId: raw?.therapyId ?? "",
-    therapistId: raw?.therapistId ?? "",
-    date: raw?.date ?? "",
-    time: raw?.time ?? "",
-    modality: raw?.modality === "distancia" ? "distancia" : "presencial",
-    clientName: raw?.clientName ?? "",
-    clientPhone: raw?.clientPhone ?? "",
-    status: ["pendente", "confirmado", "cancelado"].includes(raw?.status) ? raw.status : "pendente",
-    createdAt: raw?.createdAt ?? new Date().toISOString(),
-    isSeed: raw?.isSeed,
-  };
 }
 
 /* =========================================================================
@@ -338,6 +288,42 @@ function usePersistedState<T>(key: string, initial: T) {
    ========================================================================= */
 function cx(...parts: (string | false | undefined | null)[]) {
   return parts.filter(Boolean).join(" ");
+}
+
+/* =========================================================================
+   UPLOAD DE FOTO — redimensiona no navegador antes de salvar (localStorage)
+   ========================================================================= */
+function fileToCompressedDataUrl(file: File, maxSize = 480, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxSize) {
+          height = Math.round((height * maxSize) / width);
+          width = maxSize;
+        } else if (height >= width && height > maxSize) {
+          width = Math.round((width * maxSize) / height);
+          height = maxSize;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas indisponível"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Não foi possível ler a imagem"));
+      img.src = String(reader.result);
+    };
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function ModalityBadge({ modality }: { modality: Modality | "presencial" | "distancia" }) {
@@ -562,16 +548,23 @@ function TherapyModal({
           </h3>
           <div className="mb-4"><ModalityBadge modality={therapy.modality} /></div>
 
-          <p className="text-sm leading-relaxed mb-3" style={{ color: T.text }}>
+          <p className="text-sm leading-relaxed mb-5" style={{ color: T.text }}>
             {therapy.description}
           </p>
 
-          {therapy.benefits.length > 0 && (
-            <p className="text-sm leading-relaxed mb-5" style={{ color: T.text }}>
-              <span className="font-semibold" style={{ color: T.dark }}>Benefícios: </span>
-              {therapy.benefits.join(", ")}.
+          <div className="mb-5">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: T.textSoft }}>
+              Benefícios
             </p>
-          )}
+            <ul className="space-y-1.5">
+              {therapy.benefits.map((b, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm" style={{ color: T.text }}>
+                  <Check className="w-4 h-4 mt-0.5 shrink-0" style={{ color: T.primary }} />
+                  {b}
+                </li>
+              ))}
+            </ul>
+          </div>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="rounded-xl p-3" style={{ background: T.primarySoft }}>
@@ -735,28 +728,6 @@ function TherapyCatalog({
 /* =========================================================================
    CORPO CLÍNICO
    ========================================================================= */
-function TherapistAvatar({ therapist, size = "w-12 h-12" }: { therapist: Therapist; size?: string }) {
-  const initials = therapist.name.split(" ").slice(0, 2).map((n) => n[0]).join("");
-  if (therapist.photoUrl) {
-    return (
-      <img
-        src={therapist.photoUrl}
-        alt={therapist.name}
-        className={cx(size, "rounded-full object-cover shrink-0")}
-        style={{ border: `2px solid ${T.primarySoft}` }}
-      />
-    );
-  }
-  return (
-    <div
-      className={cx(size, "rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0")}
-      style={{ background: T.primary }}
-    >
-      {initials}
-    </div>
-  );
-}
-
 function TherapistsSection({
   therapists,
   therapies,
@@ -768,9 +739,7 @@ function TherapistsSection({
 }) {
   const [dayFilter, setDayFilter] = useState<string>("todos");
 
-  const filtered = therapists.filter(
-    (p) => !p.hidden && (dayFilter === "todos" || (p.availability[dayFilter]?.length ?? 0) > 0)
-  );
+  const filtered = therapists.filter((p) => !p.hidden && (dayFilter === "todos" || p.days.includes(dayFilter)));
 
   return (
     <section>
@@ -813,30 +782,33 @@ function TherapistsSection({
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => {
+            const initials = p.name.split(" ").slice(0, 2).map((n) => n[0]).join("");
             const specialtyNames = p.specialties
               .map((id) => therapies.find((t) => t.id === id)?.name)
               .filter(Boolean) as string[];
-            const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
             return (
               <div key={p.id} className="rounded-2xl p-5 border" style={{ borderColor: T.border, background: T.card }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <TherapistAvatar therapist={p} />
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0 overflow-hidden"
+                    style={{ background: T.primary }}
+                  >
+                    {p.photo ? <img src={p.photo} alt={p.name} className="w-full h-full object-cover" /> : initials}
+                  </div>
                   <div>
                     <h3 className="font-semibold" style={{ color: T.dark }}>{p.name}</h3>
                     <p className="text-xs" style={{ color: T.textSoft }}>{specialtyNames.join(" · ")}</p>
                   </div>
                 </div>
+                <p className="text-sm mb-4 leading-relaxed" style={{ color: T.text }}>{p.bio}</p>
                 <div className="flex flex-wrap gap-1.5 mb-4">
-                  {activeDays.length === 0 && (
-                    <span className="text-xs" style={{ color: T.textSoft }}>Sem horários cadastrados</span>
-                  )}
-                  {activeDays.map((d) => (
+                  {p.days.map((d) => (
                     <span
                       key={d}
                       className="text-xs px-2 py-1 rounded-full"
                       style={{ background: T.primarySoft, color: T.dark }}
                     >
-                      {d} · {p.availability[d].length} horário{p.availability[d].length > 1 ? "s" : ""}
+                      {d}
                     </span>
                   ))}
                 </div>
@@ -862,14 +834,12 @@ function TherapistsSection({
 function BookingWizard({
   therapies,
   therapists,
-  appointments,
   presetTherapyId,
   presetTherapistId,
   onComplete,
 }: {
   therapies: Therapy[];
   therapists: Therapist[];
-  appointments: Appointment[];
   presetTherapyId?: string | null;
   presetTherapistId?: string | null;
   onComplete: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;
@@ -883,7 +853,6 @@ function BookingWizard({
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [sent, setSent] = useState(false);
-  const [slotTakenWarning, setSlotTakenWarning] = useState(false);
 
   useEffect(() => {
     if (presetTherapyId) setTherapyId(presetTherapyId);
@@ -902,29 +871,6 @@ function BookingWizard({
 
   const selectedTherapy = therapies.find((t) => t.id === therapyId);
   const selectedTherapist = therapists.find((p) => p.id === therapistId);
-
-  const weekday = weekdayNameFromDate(date);
-  const takenTimes = useMemo(
-    () =>
-      appointments
-        .filter(
-          (a) =>
-            a.therapistId === therapistId &&
-            a.date === date &&
-            (a.status === "pendente" || a.status === "confirmado")
-        )
-        .map((a) => a.time),
-    [appointments, therapistId, date]
-  );
-  const availableTimes = useMemo(() => {
-    if (!selectedTherapist || !weekday) return [];
-    const dayTimes = selectedTherapist.availability[weekday] ?? [];
-    return dayTimes.filter((t) => !takenTimes.includes(t)).sort();
-  }, [selectedTherapist, weekday, takenTimes]);
-
-  useEffect(() => {
-    setTime("");
-  }, [date, therapistId]);
 
   const canGoStep2 = !!therapyId;
   const canGoStep3 = !!therapistId;
@@ -953,11 +899,6 @@ function BookingWizard({
 
   const handleConfirm = () => {
     if (!therapyId || !therapistId) return;
-    if (!availableTimes.includes(time)) {
-      setSlotTakenWarning(true);
-      setTime("");
-      return;
-    }
     onComplete({
       therapyId,
       therapistId,
@@ -1039,7 +980,21 @@ function BookingWizard({
       <div className="rounded-2xl border p-6" style={{ borderColor: T.border, background: T.card }}>
         {step === 1 && (
           <div className="animate-[fadeIn_.2s_ease]">
-            <p className="text-sm font-medium mb-4" style={{ color: T.text }}>Escolha a terapia</p>
+            <p className="text-sm font-medium mb-2" style={{ color: T.text }}>Escolha a terapia</p>
+            <label className="block mb-4">
+              <span className="text-xs mb-1 block" style={{ color: T.textSoft }}>Ou selecione pela lista</span>
+              <select
+                value={therapyId ?? ""}
+                onChange={(e) => setTherapyId(e.target.value || null)}
+                className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none"
+                style={{ borderColor: T.border, color: T.text }}
+              >
+                <option value="">Selecione uma terapia…</option>
+                {visibleTherapies.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </label>
             <div className="grid sm:grid-cols-2 gap-3">
               {visibleTherapies.map((t) => {
                 const IconEl = ICONS[t.icon];
@@ -1065,11 +1020,25 @@ function BookingWizard({
 
         {step === 2 && (
           <div className="animate-[fadeIn_.2s_ease]">
-            <p className="text-sm font-medium mb-4" style={{ color: T.text }}>Escolha o terapeuta</p>
+            <p className="text-sm font-medium mb-2" style={{ color: T.text }}>Escolha o terapeuta</p>
+            <label className="block mb-4">
+              <span className="text-xs mb-1 block" style={{ color: T.textSoft }}>Ou selecione pela lista</span>
+              <select
+                value={therapistId ?? ""}
+                onChange={(e) => setTherapistId(e.target.value || null)}
+                className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none"
+                style={{ borderColor: T.border, color: T.text }}
+              >
+                <option value="">Selecione um terapeuta…</option>
+                {eligibleTherapists.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </label>
             <div className="grid sm:grid-cols-2 gap-3">
               {eligibleTherapists.map((p) => {
                 const selected = therapistId === p.id;
-                const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
+                const initials = p.name.split(" ").slice(0, 2).map((n) => n[0]).join("");
                 return (
                   <button
                     key={p.id}
@@ -1077,10 +1046,12 @@ function BookingWizard({
                     className="text-left rounded-xl p-4 border-2 transition flex items-center gap-3"
                     style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
                   >
-                    <TherapistAvatar therapist={p} size="w-9 h-9" />
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 overflow-hidden" style={{ background: T.primary }}>
+                      {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover" /> : initials}
+                    </div>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: T.dark }}>{p.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: T.textSoft }}>{activeDays.join(", ") || "Sem horários cadastrados"}</p>
+                      <p className="text-xs mt-0.5" style={{ color: T.textSoft }}>{p.days.join(", ")}</p>
                     </div>
                   </button>
                 );
@@ -1092,65 +1063,28 @@ function BookingWizard({
 
         {step === 3 && (
           <div className="animate-[fadeIn_.2s_ease] space-y-5">
-            <label className="block">
-              <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Data</span>
-              <input
-                type="date"
-                value={date}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setSlotTakenWarning(false);
-                }}
-                className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                style={{ borderColor: T.border, color: T.text }}
-              />
-            </label>
-
-            <div>
-              <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Horário</span>
-              {!date && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  Escolha uma data para ver os horários disponíveis.
-                </p>
-              )}
-              {date && !weekday && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  A clínica não atende aos domingos. Escolha outra data.
-                </p>
-              )}
-              {date && weekday && availableTimes.length === 0 && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  {selectedTherapist?.name.split(" ")[0]} não tem horários livres em {weekday.toLowerCase()}. Tente outra data.
-                </p>
-              )}
-              {date && weekday && availableTimes.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {availableTimes.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => {
-                        setTime(t);
-                        setSlotTakenWarning(false);
-                      }}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition"
-                      style={{
-                        borderColor: time === t ? T.primary : T.border,
-                        background: time === t ? T.primarySoft : "transparent",
-                        color: T.text,
-                      }}
-                    >
-                      <Clock className="w-3.5 h-3.5" style={{ color: T.primary }} />
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {slotTakenWarning && (
-                <p className="text-sm mt-2" style={{ color: T.red }}>
-                  Esse horário acabou de ser reservado por outra pessoa. Escolha outro, por favor.
-                </p>
-              )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Data</span>
+                <input
+                  type="date"
+                  value={date}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                  style={{ borderColor: T.border, color: T.text }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Horário</span>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                  style={{ borderColor: T.border, color: T.text }}
+                />
+              </label>
             </div>
 
             <div>
@@ -1285,7 +1219,7 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-type AdminTab = "agendamentos" | "terapias" | "terapeutas" | "backup";
+type AdminTab = "agendamentos" | "terapias" | "terapeutas" | "sac" | "backup";
 
 function AdminPanel({
   therapies,
@@ -1294,6 +1228,8 @@ function AdminPanel({
   setTherapists,
   appointments,
   setAppointments,
+  faqs,
+  setFaqs,
 }: {
   therapies: Therapy[];
   setTherapies: (v: Therapy[]) => void;
@@ -1301,6 +1237,8 @@ function AdminPanel({
   setTherapists: (v: Therapist[]) => void;
   appointments: Appointment[];
   setAppointments: (v: Appointment[]) => void;
+  faqs: FAQItem[];
+  setFaqs: (v: FAQItem[]) => void;
 }) {
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<AdminTab>("agendamentos");
@@ -1311,6 +1249,7 @@ function AdminPanel({
     { id: "agendamentos", label: "Agendamentos", icon: ClipboardList },
     { id: "terapias", label: "Terapias", icon: Sparkles },
     { id: "terapeutas", label: "Terapeutas", icon: Stethoscope },
+    { id: "sac", label: "SAC", icon: MessageCircle },
     { id: "backup", label: "Backup", icon: Database },
   ];
 
@@ -1351,10 +1290,18 @@ function AdminPanel({
           therapists={therapists}
         />
       )}
-      {tab === "terapias" && <AdminTherapies therapies={therapies} setTherapies={setTherapies} />}
+      {tab === "terapias" && (
+        <AdminTherapies
+          therapies={therapies}
+          setTherapies={setTherapies}
+          therapists={therapists}
+          setTherapists={setTherapists}
+        />
+      )}
       {tab === "terapeutas" && (
         <AdminTherapists therapists={therapists} setTherapists={setTherapists} therapies={therapies} />
       )}
+      {tab === "sac" && <AdminFAQs faqs={faqs} setFaqs={setFaqs} />}
       {tab === "backup" && (
         <AdminBackup
           therapies={therapies}
@@ -1363,6 +1310,8 @@ function AdminPanel({
           setTherapists={setTherapists}
           appointments={appointments}
           setAppointments={setAppointments}
+          faqs={faqs}
+          setFaqs={setFaqs}
         />
       )}
     </section>
@@ -1434,21 +1383,44 @@ function AdminAppointments({
   );
 }
 
-function AdminTherapies({ therapies, setTherapies }: { therapies: Therapy[]; setTherapies: (v: Therapy[]) => void }) {
+function AdminTherapies({
+  therapies,
+  setTherapies,
+  therapists,
+  setTherapists,
+}: {
+  therapies: Therapy[];
+  setTherapies: (v: Therapy[]) => void;
+  therapists: Therapist[];
+  setTherapists: (v: Therapist[]) => void;
+}) {
   const [editing, setEditing] = useState<Therapy | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const save = (t: Therapy) => {
+  const save = (t: Therapy, linkedTherapistIds: string[]) => {
     if (therapies.find((x) => x.id === t.id)) {
       setTherapies(therapies.map((x) => (x.id === t.id ? t : x)));
     } else {
       setTherapies([...therapies, t]);
     }
+    // sincroniza a mão dupla: atualiza a lista de especialidades de cada terapeuta
+    setTherapists(
+      therapists.map((p) => {
+        const shouldHave = linkedTherapistIds.includes(p.id);
+        const has = p.specialties.includes(t.id);
+        if (shouldHave && !has) return { ...p, specialties: [...p.specialties, t.id] };
+        if (!shouldHave && has) return { ...p, specialties: p.specialties.filter((id) => id !== t.id) };
+        return p;
+      })
+    );
     setEditing(null);
     setCreating(false);
   };
 
-  const remove = (id: string) => setTherapies(therapies.filter((t) => t.id !== id));
+  const remove = (id: string) => {
+    setTherapies(therapies.filter((t) => t.id !== id));
+    setTherapists(therapists.map((p) => ({ ...p, specialties: p.specialties.filter((sid) => sid !== id) })));
+  };
   const toggleHidden = (id: string) =>
     setTherapies(therapies.map((t) => (t.id === id ? { ...t, hidden: !t.hidden } : t)));
 
@@ -1456,6 +1428,7 @@ function AdminTherapies({ therapies, setTherapies }: { therapies: Therapy[]; set
     return (
       <TherapyForm
         initial={editing ?? undefined}
+        therapists={therapists}
         onCancel={() => {
           setEditing(null);
           setCreating(false);
@@ -1475,31 +1448,47 @@ function AdminTherapies({ therapies, setTherapies }: { therapies: Therapy[]; set
         <Plus className="w-4 h-4" /> Nova terapia
       </button>
       <div className="space-y-2">
-        {therapies.map((t) => (
-          <div key={t.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: t.hidden ? 0.55 : 1 }}>
-            <div className="min-w-0">
-              <p className="font-medium truncate" style={{ color: T.dark }}>{t.name}</p>
-              <p className="text-xs truncate" style={{ color: T.textSoft }}>{t.summary}</p>
+        {therapies.map((t) => {
+          const linkedNames = therapists.filter((p) => p.specialties.includes(t.id)).map((p) => p.name);
+          return (
+            <div key={t.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: t.hidden ? 0.55 : 1 }}>
+              <div className="min-w-0">
+                <p className="font-medium truncate" style={{ color: T.dark }}>{t.name}</p>
+                <p className="text-xs truncate" style={{ color: T.textSoft }}>{t.summary}</p>
+                <p className="text-xs truncate mt-0.5" style={{ color: T.primary }}>
+                  {linkedNames.length > 0 ? `Terapeutas: ${linkedNames.join(", ")}` : "Nenhum terapeuta vinculado"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <IconButton onClick={() => toggleHidden(t.id)} label={t.hidden ? "Exibir" : "Ocultar"}>
+                  {t.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </IconButton>
+                <IconButton onClick={() => setEditing(t)} label="Editar">
+                  <Pencil className="w-4 h-4" />
+                </IconButton>
+                <IconButton onClick={() => remove(t.id)} label="Excluir" danger>
+                  <Trash2 className="w-4 h-4" />
+                </IconButton>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <IconButton onClick={() => toggleHidden(t.id)} label={t.hidden ? "Exibir" : "Ocultar"}>
-                {t.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </IconButton>
-              <IconButton onClick={() => setEditing(t)} label="Editar">
-                <Pencil className="w-4 h-4" />
-              </IconButton>
-              <IconButton onClick={() => remove(t.id)} label="Excluir" danger>
-                <Trash2 className="w-4 h-4" />
-              </IconButton>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function TherapyForm({ initial, onCancel, onSave }: { initial?: Therapy; onCancel: () => void; onSave: (t: Therapy) => void }) {
+function TherapyForm({
+  initial,
+  therapists,
+  onCancel,
+  onSave,
+}: {
+  initial?: Therapy;
+  therapists: Therapist[];
+  onCancel: () => void;
+  onSave: (t: Therapy, linkedTherapistIds: string[]) => void;
+}) {
   const [name, setName] = useState(initial?.name ?? "");
   const [icon, setIcon] = useState<IconKey>(initial?.icon ?? "sparkles");
   const [summary, setSummary] = useState(initial?.summary ?? "");
@@ -1508,24 +1497,33 @@ function TherapyForm({ initial, onCancel, onSave }: { initial?: Therapy; onCance
   const [duration, setDuration] = useState(initial?.duration ?? "");
   const [contribution, setContribution] = useState(initial?.contribution ?? "");
   const [modality, setModality] = useState<Modality>(initial?.modality ?? "ambas");
+  const [linkedTherapistIds, setLinkedTherapistIds] = useState<string[]>(
+    initial ? therapists.filter((p) => p.specialties.includes(initial.id)).map((p) => p.id) : []
+  );
+
+  const toggleTherapist = (id: string) =>
+    setLinkedTherapistIds((arr) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]));
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSave({
-          id: initial?.id ?? genId("th"),
-          name,
-          icon,
-          summary,
-          description,
-          benefits: benefits.split(",").map((b) => b.trim()).filter(Boolean),
-          duration,
-          contribution,
-          modality,
-          hidden: initial?.hidden ?? false,
-          isSeed: initial?.isSeed,
-        });
+        onSave(
+          {
+            id: initial?.id ?? genId("th"),
+            name,
+            icon,
+            summary,
+            description,
+            benefits: benefits.split(",").map((b) => b.trim()).filter(Boolean),
+            duration,
+            contribution,
+            modality,
+            hidden: initial?.hidden ?? false,
+            isSeed: initial?.isSeed,
+          },
+          linkedTherapistIds
+        );
       }}
       className="rounded-2xl border p-5 space-y-4"
       style={{ borderColor: T.border, background: T.card }}
@@ -1557,6 +1555,29 @@ function TherapyForm({ initial, onCancel, onSave }: { initial?: Therapy; onCance
           <option value="presencial">Presencial</option>
           <option value="distancia">A Distância</option>
         </select>
+      </FormField>
+      <FormField label="Terapeutas que aplicam esta terapia">
+        {therapists.length === 0 ? (
+          <p className="text-xs" style={{ color: T.textSoft }}>Nenhum terapeuta cadastrado ainda.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {therapists.map((p) => (
+              <button
+                type="button"
+                key={p.id}
+                onClick={() => toggleTherapist(p.id)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border"
+                style={{
+                  borderColor: linkedTherapistIds.includes(p.id) ? T.primary : T.border,
+                  background: linkedTherapistIds.includes(p.id) ? T.primary : "transparent",
+                  color: linkedTherapistIds.includes(p.id) ? "#fff" : T.text,
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
       </FormField>
       <FormActions onCancel={onCancel} />
     </form>
@@ -1613,108 +1634,31 @@ function AdminTherapists({
         <Plus className="w-4 h-4" /> Novo terapeuta
       </button>
       <div className="space-y-2">
-        {therapists.map((p) => {
-          const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
-          return (
-            <div key={p.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: p.hidden ? 0.55 : 1 }}>
-              <div className="flex items-center gap-3 min-w-0">
-                <TherapistAvatar therapist={p} size="w-10 h-10" />
-                <div className="min-w-0">
-                  <p className="font-medium truncate" style={{ color: T.dark }}>{p.name}</p>
-                  <p className="text-xs truncate" style={{ color: T.textSoft }}>{activeDays.join(", ") || "Sem horários cadastrados"}</p>
-                </div>
+        {therapists.map((p) => (
+          <div key={p.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: p.hidden ? 0.55 : 1 }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 overflow-hidden" style={{ background: T.primary }}>
+                {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover" /> : p.name.split(" ").slice(0, 2).map((n) => n[0]).join("")}
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <IconButton onClick={() => toggleHidden(p.id)} label={p.hidden ? "Exibir" : "Ocultar"}>
-                  {p.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </IconButton>
-                <IconButton onClick={() => setEditing(p)} label="Editar">
-                  <Pencil className="w-4 h-4" />
-                </IconButton>
-                <IconButton onClick={() => remove(p.id)} label="Excluir" danger>
-                  <Trash2 className="w-4 h-4" />
-                </IconButton>
+              <div className="min-w-0">
+                <p className="font-medium truncate" style={{ color: T.dark }}>{p.name}</p>
+                <p className="text-xs truncate" style={{ color: T.textSoft }}>{p.days.join(", ")}</p>
               </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function AvailabilityEditor({
-  availability,
-  onChange,
-}: {
-  availability: Record<string, string[]>;
-  onChange: (v: Record<string, string[]>) => void;
-}) {
-  const [draftTime, setDraftTime] = useState<Record<string, string>>({});
-
-  const addTime = (day: string) => {
-    const t = draftTime[day];
-    if (!t) return;
-    const current = availability[day] ?? [];
-    if (current.includes(t)) return;
-    onChange({ ...availability, [day]: [...current, t].sort() });
-    setDraftTime((d) => ({ ...d, [day]: "" }));
-  };
-
-  const removeTime = (day: string, t: string) => {
-    onChange({ ...availability, [day]: (availability[day] ?? []).filter((x) => x !== t) });
-  };
-
-  return (
-    <div className="space-y-3">
-      {WEEKDAYS.map((day) => {
-        const times = availability[day] ?? [];
-        return (
-          <div key={day} className="rounded-xl border p-3" style={{ borderColor: T.border }}>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: T.dark }}>
-                <CalendarDays className="w-3.5 h-3.5" style={{ color: T.primary }} /> {day}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="time"
-                  value={draftTime[day] ?? ""}
-                  onChange={(e) => setDraftTime((d) => ({ ...d, [day]: e.target.value }))}
-                  className="px-2 py-1.5 rounded-lg border text-xs outline-none"
-                  style={{ borderColor: T.border, color: T.text }}
-                />
-                <button
-                  type="button"
-                  onClick={() => addTime(day)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
-                  style={{ background: T.primary }}
-                  aria-label={`Adicionar horário em ${day}`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <IconButton onClick={() => toggleHidden(p.id)} label={p.hidden ? "Exibir" : "Ocultar"}>
+                {p.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </IconButton>
+              <IconButton onClick={() => setEditing(p)} label="Editar">
+                <Pencil className="w-4 h-4" />
+              </IconButton>
+              <IconButton onClick={() => remove(p.id)} label="Excluir" danger>
+                <Trash2 className="w-4 h-4" />
+              </IconButton>
             </div>
-            {times.length === 0 ? (
-              <p className="text-xs" style={{ color: T.textSoft }}>Nenhum horário neste dia.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {times.map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
-                    style={{ background: T.primarySoft, color: T.dark }}
-                  >
-                    {t}
-                    <button type="button" onClick={() => removeTime(day, t)} aria-label={`Remover ${t} de ${day}`}>
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
@@ -1731,12 +1675,29 @@ function TherapistForm({
   onSave: (p: Therapist) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl ?? "");
+  const [bio, setBio] = useState(initial?.bio ?? "");
   const [specialties, setSpecialties] = useState<string[]>(initial?.specialties ?? []);
-  const [availability, setAvailability] = useState<Record<string, string[]>>(initial?.availability ?? {});
+  const [days, setDays] = useState<string[]>(initial?.days ?? []);
+  const [photo, setPhoto] = useState<string | undefined>(initial?.photo);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const toggle = (arr: string[], v: string, setter: (v: string[]) => void) =>
     setter(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
+  const handlePhotoChange = async (file: File) => {
+    setPhotoError(null);
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Selecione um arquivo de imagem (JPG, PNG etc.).");
+      return;
+    }
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file);
+      setPhoto(dataUrl);
+    } catch {
+      setPhotoError("Não foi possível carregar essa imagem. Tente outro arquivo.");
+    }
+  };
 
   return (
     <form
@@ -1745,9 +1706,10 @@ function TherapistForm({
         onSave({
           id: initial?.id ?? genId("pr"),
           name,
-          photoUrl: photoUrl.trim(),
+          bio,
           specialties,
-          availability,
+          days,
+          photo,
           hidden: initial?.hidden ?? false,
           isSeed: initial?.isSeed,
         });
@@ -1756,21 +1718,46 @@ function TherapistForm({
       style={{ borderColor: T.border, background: T.card }}
     >
       <p className="font-semibold" style={{ color: T.dark }}>{initial ? "Editar terapeuta" : "Novo terapeuta"}</p>
-      <FormField label="Nome"><Input value={name} onChange={setName} required /></FormField>
-      <FormField label="Foto (link da imagem)">
-        <div className="flex items-center gap-3">
-          {photoUrl ? (
-            <img src={photoUrl} alt="Pré-visualização" className="w-12 h-12 rounded-full object-cover border" style={{ borderColor: T.border }} />
-          ) : (
-            <div className="w-12 h-12 rounded-full flex items-center justify-center border" style={{ borderColor: T.border, background: T.primarySoft }}>
-              <ImageIcon className="w-5 h-5" style={{ color: T.textSoft }} />
+      <FormField label="Foto">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden" style={{ background: T.primary }}>
+            {photo ? <img src={photo} alt="" className="w-full h-full object-cover" /> : <User className="w-6 h-6" />}
+          </div>
+          <div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handlePhotoChange(e.target.files[0])}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition hover:bg-black/5"
+                style={{ borderColor: T.border, color: T.dark }}
+              >
+                <Upload className="w-3.5 h-3.5" /> {photo ? "Trocar foto" : "Enviar foto"}
+              </button>
+              {photo && (
+                <button
+                  type="button"
+                  onClick={() => setPhoto(undefined)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition hover:bg-black/5"
+                  style={{ borderColor: T.border, color: T.red }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Remover
+                </button>
+              )}
             </div>
-          )}
-          <div className="flex-1">
-            <Input value={photoUrl} onChange={setPhotoUrl} />
+            {photoError && <p className="text-xs mt-1.5" style={{ color: T.red }}>{photoError}</p>}
+            <p className="text-xs mt-1.5" style={{ color: T.textSoft }}>Escolha uma foto do seu computador (JPG ou PNG).</p>
           </div>
         </div>
       </FormField>
+      <FormField label="Nome"><Input value={name} onChange={setName} required /></FormField>
+      <FormField label="Bio"><Textarea value={bio} onChange={setBio} /></FormField>
       <FormField label="Especialidades">
         <div className="flex flex-wrap gap-2">
           {therapies.map((t) => (
@@ -1780,9 +1767,111 @@ function TherapistForm({
           ))}
         </div>
       </FormField>
-      <FormField label="Dias e horários disponíveis">
-        <AvailabilityEditor availability={availability} onChange={setAvailability} />
+      <FormField label="Dias disponíveis">
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAYS.map((d) => (
+            <button type="button" key={d} onClick={() => toggle(days, d, setDays)} className="px-3 py-1.5 rounded-full text-xs font-medium border" style={{ borderColor: days.includes(d) ? T.primary : T.border, background: days.includes(d) ? T.primary : "transparent", color: days.includes(d) ? "#fff" : T.text }}>
+              {d}
+            </button>
+          ))}
+        </div>
       </FormField>
+      <FormActions onCancel={onCancel} />
+    </form>
+  );
+}
+
+function AdminFAQs({ faqs, setFaqs }: { faqs: FAQItem[]; setFaqs: (v: FAQItem[]) => void }) {
+  const [editing, setEditing] = useState<FAQItem | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const save = (f: FAQItem) => {
+    if (faqs.find((x) => x.id === f.id)) {
+      setFaqs(faqs.map((x) => (x.id === f.id ? f : x)));
+    } else {
+      setFaqs([...faqs, f]);
+    }
+    setEditing(null);
+    setCreating(false);
+  };
+
+  const remove = (id: string) => setFaqs(faqs.filter((f) => f.id !== id));
+  const toggleHidden = (id: string) =>
+    setFaqs(faqs.map((f) => (f.id === id ? { ...f, hidden: !f.hidden } : f)));
+
+  if (editing || creating) {
+    return (
+      <FAQForm
+        initial={editing ?? undefined}
+        onCancel={() => {
+          setEditing(null);
+          setCreating(false);
+        }}
+        onSave={save}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setCreating(true)}
+        className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
+        style={{ background: T.primary }}
+      >
+        <Plus className="w-4 h-4" /> Nova pergunta
+      </button>
+      {faqs.length === 0 ? (
+        <EmptyState text="Nenhuma pergunta cadastrada ainda." />
+      ) : (
+        <div className="space-y-2">
+          {faqs.map((f) => (
+            <div key={f.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: f.hidden ? 0.55 : 1 }}>
+              <div className="min-w-0">
+                <p className="font-medium truncate" style={{ color: T.dark }}>{f.question}</p>
+                <p className="text-xs truncate" style={{ color: T.textSoft }}>{f.answer}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <IconButton onClick={() => toggleHidden(f.id)} label={f.hidden ? "Exibir" : "Ocultar"}>
+                  {f.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </IconButton>
+                <IconButton onClick={() => setEditing(f)} label="Editar">
+                  <Pencil className="w-4 h-4" />
+                </IconButton>
+                <IconButton onClick={() => remove(f.id)} label="Excluir" danger>
+                  <Trash2 className="w-4 h-4" />
+                </IconButton>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FAQForm({ initial, onCancel, onSave }: { initial?: FAQItem; onCancel: () => void; onSave: (f: FAQItem) => void }) {
+  const [question, setQuestion] = useState(initial?.question ?? "");
+  const [answer, setAnswer] = useState(initial?.answer ?? "");
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({
+          id: initial?.id ?? genId("faq"),
+          question,
+          answer,
+          hidden: initial?.hidden ?? false,
+          isSeed: initial?.isSeed,
+        });
+      }}
+      className="rounded-2xl border p-5 space-y-4"
+      style={{ borderColor: T.border, background: T.card }}
+    >
+      <p className="font-semibold" style={{ color: T.dark }}>{initial ? "Editar pergunta" : "Nova pergunta"}</p>
+      <FormField label="Pergunta"><Input value={question} onChange={setQuestion} required /></FormField>
+      <FormField label="Resposta"><Textarea value={answer} onChange={setAnswer} required /></FormField>
       <FormActions onCancel={onCancel} />
     </form>
   );
@@ -1795,6 +1884,8 @@ function AdminBackup({
   setTherapists,
   appointments,
   setAppointments,
+  faqs,
+  setFaqs,
 }: {
   therapies: Therapy[];
   setTherapies: (v: Therapy[]) => void;
@@ -1802,12 +1893,14 @@ function AdminBackup({
   setTherapists: (v: Therapist[]) => void;
   appointments: Appointment[];
   setAppointments: (v: Appointment[]) => void;
+  faqs: FAQItem[];
+  setFaqs: (v: FAQItem[]) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const exportJSON = () => {
-    const payload = { therapies, therapists, appointments, exportedAt: new Date().toISOString() };
+    const payload = { therapies, therapists, appointments, faqs, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1826,6 +1919,7 @@ function AdminBackup({
         if (data.therapies) setTherapies(data.therapies);
         if (data.therapists) setTherapists(data.therapists);
         if (data.appointments) setAppointments(data.appointments);
+        if (data.faqs) setFaqs(data.faqs);
         setMessage("Backup importado com sucesso.");
       } catch {
         setMessage("Não foi possível ler esse arquivo. Verifique se é um backup válido do CTV.");
@@ -1838,6 +1932,7 @@ function AdminBackup({
     setTherapies(therapies.filter((t) => !t.isSeed));
     setTherapists(therapists.filter((p) => !p.isSeed));
     setAppointments(appointments.filter((a) => !a.isSeed));
+    setFaqs(faqs.filter((f) => !f.isSeed));
     setMessage("Dados de exemplo removidos. Apenas os dados reais permanecem.");
   };
 
@@ -1961,11 +2056,13 @@ function EmptyState({ text }: { text: string }) {
 function VibrationalHero({ onStart }: { onStart: () => void }) {
   return (
     <div className="relative overflow-hidden rounded-3xl mb-10 px-6 py-12 sm:px-12 sm:py-16 text-center" style={{ background: `linear-gradient(180deg, ${T.primarySoft}, ${T.bg})` }}>
-      <div className="relative w-28 h-28 mx-auto mb-6 flex items-center justify-center">
+      <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_1s]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_2s]" style={{ border: `1.5px solid ${T.primary}` }} />
-        <img src={logoCtv} alt="Centro de Terapias Vibracionais" className="w-20 h-20 object-contain" />
+        <div className="w-14 h-14 rounded-full flex items-center justify-center text-white" style={{ background: T.primary }}>
+          <Sparkles className="w-6 h-6" />
+        </div>
       </div>
       <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: T.primary }}>Centro de Terapias Vibracionais</p>
       <h1 className="text-3xl sm:text-4xl font-semibold mb-3 max-w-xl mx-auto leading-tight" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
@@ -1988,7 +2085,53 @@ function VibrationalHero({ onStart }: { onStart: () => void }) {
 /* =========================================================================
    NAVEGAÇÃO
    ========================================================================= */
-type View = "inicio" | "agendar" | "terapias" | "terapeutas" | "admin";
+type View = "inicio" | "agendar" | "terapias" | "terapeutas" | "sac" | "admin";
+
+/* =========================================================================
+   PÁGINA PÚBLICA — SAC (Perguntas frequentes)
+   ========================================================================= */
+function FAQPage({ faqs }: { faqs: FAQItem[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const visible = faqs.filter((f) => !f.hidden);
+
+  return (
+    <section>
+      <SectionHeader
+        eyebrow="Atendimento"
+        title="Perguntas frequentes"
+        subtitle="Tire suas dúvidas sobre nossas terapias, agendamentos e funcionamento."
+      />
+      {visible.length === 0 ? (
+        <EmptyState text="Nenhuma pergunta cadastrada no momento." />
+      ) : (
+        <div className="space-y-2 max-w-2xl">
+          {visible.map((f) => {
+            const open = openId === f.id;
+            return (
+              <div key={f.id} className="rounded-2xl border overflow-hidden" style={{ borderColor: T.border, background: T.card }}>
+                <button
+                  onClick={() => setOpenId(open ? null : f.id)}
+                  className="w-full flex items-center justify-between gap-3 text-left px-5 py-4"
+                >
+                  <span className="text-sm font-semibold" style={{ color: T.dark }}>{f.question}</span>
+                  <ChevronRight
+                    className="w-4 h-4 shrink-0 transition"
+                    style={{ color: T.textSoft, transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+                  />
+                </button>
+                {open && (
+                  <div className="px-5 pb-4 text-sm leading-relaxed" style={{ color: T.textSoft }}>
+                    {f.answer}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1996,13 +2139,16 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
     { id: "agendar", label: "Agendar", icon: Calendar },
     { id: "terapias", label: "Terapias", icon: LayoutGrid },
     { id: "terapeutas", label: "Terapeutas", icon: Stethoscope },
+    { id: "sac", label: "SAC", icon: MessageCircle },
   ];
 
   return (
     <header className="sticky top-0 z-40 backdrop-blur-md border-b" style={{ background: `${T.bg}E6`, borderColor: T.border }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <button onClick={() => setView("inicio")} className="flex items-center gap-2.5">
-          <img src={logoCtv} alt="Centro de Terapias Vibracionais" className="w-10 h-10 object-contain" />
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white" style={{ background: T.primary }}>
+            <Sparkles className="w-4.5 h-4.5" />
+          </div>
           <span className="font-semibold text-sm sm:text-base" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
             Portal CTV
           </span>
@@ -2067,23 +2213,10 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
    APP
    ========================================================================= */
 export default function App() {
-  const [therapiesRaw, setTherapies] = usePersistedState<Therapy[]>("ctv:therapies", SEED_THERAPIES);
-  const [therapistsRaw, setTherapists] = usePersistedState<Therapist[]>("ctv:therapists", SEED_THERAPISTS);
-  const [appointmentsRaw, setAppointments] = usePersistedState<Appointment[]>("ctv:appointments", SEED_APPOINTMENTS);
-
-  // Corrige dados salvos por uma versão anterior do app, evitando tela branca.
-  const therapies = useMemo(
-    () => (Array.isArray(therapiesRaw) ? therapiesRaw.map(normalizeTherapy) : SEED_THERAPIES),
-    [therapiesRaw]
-  );
-  const therapists = useMemo(
-    () => (Array.isArray(therapistsRaw) ? therapistsRaw.map(normalizeTherapist) : SEED_THERAPISTS),
-    [therapistsRaw]
-  );
-  const appointments = useMemo(
-    () => (Array.isArray(appointmentsRaw) ? appointmentsRaw.map(normalizeAppointment) : SEED_APPOINTMENTS),
-    [appointmentsRaw]
-  );
+  const [therapies, setTherapies] = usePersistedState<Therapy[]>("ctv:therapies", SEED_THERAPIES);
+  const [therapists, setTherapists] = usePersistedState<Therapist[]>("ctv:therapists", SEED_THERAPISTS);
+  const [appointments, setAppointments] = usePersistedState<Appointment[]>("ctv:appointments", SEED_APPOINTMENTS);
+  const [faqs, setFaqs] = usePersistedState<FAQItem[]>("ctv:faqs", SEED_FAQS);
 
   const [view, setView] = useState<View>("inicio");
   const [presetTherapyId, setPresetTherapyId] = useState<string | null>(null);
@@ -2171,11 +2304,12 @@ export default function App() {
         {view === "inicio" && (
           <>
             <VibrationalHero onStart={() => goBook()} />
-            <div className="grid sm:grid-cols-3 gap-4 mb-10">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
               {[
                 { icon: Sparkles, label: "Terapias", desc: "Conheça nossas práticas", action: () => setView("terapias") },
                 { icon: Stethoscope, label: "Terapeutas", desc: "Nosso corpo clínico", action: () => setView("terapeutas") },
                 { icon: Calendar, label: "Agendar", desc: "Marque em 3 passos", action: () => goBook() },
+                { icon: MessageCircle, label: "SAC", desc: "Perguntas frequentes", action: () => setView("sac") },
               ].map((c, i) => (
                 <button key={i} onClick={c.action} className="text-left rounded-2xl p-5 border transition hover:-translate-y-0.5 hover:shadow-md" style={{ borderColor: T.border, background: T.card }}>
                   <c.icon className="w-5 h-5 mb-3" style={{ color: T.primary }} />
@@ -2191,7 +2325,6 @@ export default function App() {
           <BookingWizard
             therapies={therapies}
             therapists={therapists}
-            appointments={appointments}
             presetTherapyId={presetTherapyId}
             presetTherapistId={presetTherapistId}
             onComplete={handleBookingComplete}
@@ -2206,6 +2339,8 @@ export default function App() {
           <TherapistsSection therapists={therapists} therapies={therapies} onBookWith={(therapistId) => goBook({ therapistId })} />
         )}
 
+        {view === "sac" && <FAQPage faqs={faqs} />}
+
         {view === "admin" && (
           <AdminPanel
             therapies={therapies}
@@ -2214,6 +2349,8 @@ export default function App() {
             setTherapists={setTherapists}
             appointments={appointments}
             setAppointments={setAppointments}
+            faqs={faqs}
+            setFaqs={setFaqs}
           />
         )}
       </main>
