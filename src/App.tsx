@@ -57,6 +57,7 @@ interface Therapist {
   photoUrl?: string;
   specialties: string[]; // therapy ids
   availability: Record<string, string[]>; // dia da semana -> lista de horários (ex.: "Segunda": ["09:00","10:00"])
+  unavailableDates: string[]; // datas específicas (YYYY-MM-DD) em que o terapeuta, excepcionalmente, não atende
   hidden: boolean;
   isSeed?: boolean;
 }
@@ -305,6 +306,7 @@ function normalizeTherapist(raw: any): Therapist {
       raw?.availability && typeof raw.availability === "object" && !Array.isArray(raw.availability)
         ? raw.availability
         : {},
+    unavailableDates: Array.isArray(raw?.unavailableDates) ? raw.unavailableDates : [],
     hidden: !!raw?.hidden,
     isSeed: raw?.isSeed,
   };
@@ -388,6 +390,11 @@ function usePersistedState<T>(key: string, initial: T) {
    ========================================================================= */
 function cx(...parts: (string | false | undefined | null)[]) {
   return parts.filter(Boolean).join(" ");
+}
+
+/** Ordena por nome em ordem alfabética (pt-BR), usado nas listagens públicas. */
+function sortByName<T extends { name: string }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
 }
 
 /* =========================================================================
@@ -719,7 +726,7 @@ function TherapyCatalog({
   };
 
   const filtered = useMemo(() => {
-    return therapies.filter((t) => {
+    const result = therapies.filter((t) => {
       if (t.hidden) return false;
       const matchesQuery =
         t.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -730,6 +737,7 @@ function TherapyCatalog({
         t.modality === modFilter;
       return matchesQuery && matchesMod;
     });
+    return sortByName(result);
   }, [therapies, query, modFilter]);
 
   return (
@@ -854,8 +862,10 @@ function TherapistsSection({
 }) {
   const [dayFilter, setDayFilter] = useState<string>("todos");
 
-  const filtered = therapists.filter(
-    (p) => !p.hidden && (dayFilter === "todos" || (p.availability[dayFilter]?.length ?? 0) > 0)
+  const filtered = sortByName(
+    therapists.filter(
+      (p) => !p.hidden && (dayFilter === "todos" || (p.availability[dayFilter]?.length ?? 0) > 0)
+    )
   );
 
   return (
@@ -981,9 +991,9 @@ function BookingWizard({
     }
   }, [presetTherapyId, presetTherapistId]);
 
-  const visibleTherapies = therapies.filter((t) => !t.hidden);
-  const eligibleTherapists = therapists.filter(
-    (p) => !p.hidden && (!therapyId || p.specialties.includes(therapyId))
+  const visibleTherapies = sortByName(therapies.filter((t) => !t.hidden));
+  const eligibleTherapists = sortByName(
+    therapists.filter((p) => !p.hidden && (!therapyId || p.specialties.includes(therapyId)))
   );
 
   const selectedTherapy = therapies.find((t) => t.id === therapyId);
@@ -1002,11 +1012,13 @@ function BookingWizard({
         .map((a) => a.time),
     [appointments, therapistId, date]
   );
+  const isBlockedDate = !!(selectedTherapist && date && selectedTherapist.unavailableDates.includes(date));
   const availableTimes = useMemo(() => {
     if (!selectedTherapist || !weekday) return [];
+    if (selectedTherapist.unavailableDates.includes(date)) return [];
     const dayTimes = selectedTherapist.availability[weekday] ?? [];
     return dayTimes.filter((t) => !takenTimes.includes(t)).sort();
-  }, [selectedTherapist, weekday, takenTimes]);
+  }, [selectedTherapist, weekday, takenTimes, date]);
 
   useEffect(() => {
     setTime("");
@@ -1233,7 +1245,12 @@ function BookingWizard({
                   A clínica não atende aos domingos. Escolha outra data.
                 </p>
               )}
-              {date && weekday && availableTimes.length === 0 && (
+              {date && weekday && isBlockedDate && (
+                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
+                  {selectedTherapist?.name.split(" ")[0]} não atende nesta data específica (dia bloqueado). Escolha outra data.
+                </p>
+              )}
+              {date && weekday && !isBlockedDate && availableTimes.length === 0 && (
                 <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
                   {selectedTherapist?.name.split(" ")[0]} não tem horários livres em {weekday.toLowerCase()}. Tente outra data.
                 </p>
@@ -1920,6 +1937,80 @@ function AvailabilityEditor({
   );
 }
 
+/**
+ * Permite marcar datas específicas (ex.: uma terça-feira pontual) em que o
+ * terapeuta não atenderá, mesmo mantendo sua recorrência semanal normal.
+ */
+function UnavailableDatesEditor({
+  dates,
+  onChange,
+}: {
+  dates: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const addDate = () => {
+    if (!draft) return;
+    if (dates.includes(draft)) {
+      setDraft("");
+      return;
+    }
+    onChange([...dates, draft].sort());
+    setDraft("");
+  };
+
+  const removeDate = (d: string) => onChange(dates.filter((x) => x !== d));
+
+  const formatted = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", weekday: "short" });
+
+  return (
+    <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: T.border }}>
+      <p className="text-xs" style={{ color: T.textSoft }}>
+        Use para bloquear um dia pontual (ex.: esta terça específica), sem alterar a rotina semanal normal.
+      </p>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="date"
+          value={draft}
+          min={new Date().toISOString().slice(0, 10)}
+          onChange={(e) => setDraft(e.target.value)}
+          className="px-2.5 py-1.5 rounded-lg border text-xs outline-none flex-1"
+          style={{ borderColor: T.border, color: T.text }}
+        />
+        <button
+          type="button"
+          onClick={addDate}
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0"
+          style={{ background: T.primary }}
+          aria-label="Bloquear data"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {dates.length === 0 ? (
+        <p className="text-xs" style={{ color: T.textSoft }}>Nenhuma data bloqueada.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {dates.map((d) => (
+            <span
+              key={d}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full capitalize"
+              style={{ background: T.primarySoft, color: T.dark }}
+            >
+              {formatted(d)}
+              <button type="button" onClick={() => removeDate(d)} aria-label={`Remover bloqueio de ${d}`}>
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TherapistForm({
   initial,
   therapies,
@@ -1936,6 +2027,7 @@ function TherapistForm({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [specialties, setSpecialties] = useState<string[]>(initial?.specialties ?? []);
   const [availability, setAvailability] = useState<Record<string, string[]>>(initial?.availability ?? {});
+  const [unavailableDates, setUnavailableDates] = useState<string[]>(initial?.unavailableDates ?? []);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const toggle = (arr: string[], v: string, setter: (v: string[]) => void) =>
@@ -1965,6 +2057,7 @@ function TherapistForm({
           photoUrl,
           specialties,
           availability,
+          unavailableDates,
           hidden: initial?.hidden ?? false,
           isSeed: initial?.isSeed,
         });
@@ -2027,6 +2120,9 @@ function TherapistForm({
       </FormField>
       <FormField label="Dias e horários disponíveis">
         <AvailabilityEditor availability={availability} onChange={setAvailability} />
+      </FormField>
+      <FormField label="Exceções: dias específicos indisponíveis">
+        <UnavailableDatesEditor dates={unavailableDates} onChange={setUnavailableDates} />
       </FormField>
       <FormActions onCancel={onCancel} />
     </form>
