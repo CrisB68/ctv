@@ -57,7 +57,7 @@ interface Therapist {
   photoUrl?: string;
   specialties: string[]; // therapy ids
   availability: Record<string, string[]>; // dia da semana -> lista de horários (ex.: "Segunda": ["09:00","10:00"])
-  unavailableDates: string[]; // datas específicas (YYYY-MM-DD) em que o terapeuta, excepcionalmente, não atende
+  unavailableDates?: string[]; // datas específicas (YYYY-MM-DD) em que o terapeuta, excepcionalmente, não atende
   hidden: boolean;
   isSeed?: boolean;
 }
@@ -163,6 +163,7 @@ const SEED_THERAPISTS: Therapist[] = [
     photoUrl: "",
     specialties: ["th-reiki", "th-florais"],
     availability: {
+    unavailableDates: [] //
       Segunda: ["09:00", "10:00", "11:00"],
       Quarta: ["14:00", "15:00", "16:00"],
       Sexta: ["09:00", "10:00"],
@@ -176,6 +177,7 @@ const SEED_THERAPISTS: Therapist[] = [
     photoUrl: "",
     specialties: ["th-constelacao", "th-cristais"],
     availability: {
+    unavailableDates: [] //
       Terça: ["14:00", "16:00", "18:00"],
       Quinta: ["09:00", "11:00"],
       Sábado: ["09:00", "10:00", "11:00"],
@@ -189,6 +191,7 @@ const SEED_THERAPISTS: Therapist[] = [
     photoUrl: "",
     specialties: ["th-reiki", "th-constelacao", "th-florais"],
     availability: {
+    unavailableDates: [] //
       Segunda: ["14:00", "15:00"],
       Terça: ["09:00", "10:00"],
       Quinta: ["14:00", "15:00", "16:00"],
