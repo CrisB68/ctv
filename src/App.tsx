@@ -7,7 +7,6 @@ import {
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays
 } from "lucide-react";
-import logoCtv from "./assets/logo-ctv.png";
 
 /* =========================================================================
    TEMA — Portal CTV (Centro de Terapias Vibracionais)
@@ -27,8 +26,8 @@ const T = {
   red: "#B3452C",
 };
 
-const WHATSAPP_NUMBER = "5535999999999";
-const ADMIN_PASSWORD = "ctv2024";
+const WHATSAPP_NUMBER = "558499040049";
+const ADMIN_PASSWORD = "ctv1808";
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 /* =========================================================================
@@ -1015,10 +1014,10 @@ function BookingWizard({
         .map((a) => a.time),
     [appointments, therapistId, date]
   );
-  const isBlockedDate = !!(selectedTherapist && date && selectedTherapist.unavailableDates.includes(date));
+  const isBlockedDate = !!(selectedTherapist && date && (selectedTherapist.unavailableDates ?? []).includes(date));
   const availableTimes = useMemo(() => {
     if (!selectedTherapist || !weekday) return [];
-    if (selectedTherapist.unavailableDates.includes(date)) return [];
+    if ((selectedTherapist.unavailableDates ?? []).includes(date)) return [];
     const dayTimes = selectedTherapist.availability[weekday] ?? [];
     return dayTimes.filter((t) => !takenTimes.includes(t)).sort();
   }, [selectedTherapist, weekday, takenTimes, date]);
@@ -1945,25 +1944,26 @@ function AvailabilityEditor({
  * terapeuta não atenderá, mesmo mantendo sua recorrência semanal normal.
  */
 function UnavailableDatesEditor({
-  dates,
+  dates = [],
   onChange,
 }: {
-  dates: string[];
+  dates?: string[];
   onChange: (v: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const safeDates = dates ?? [];
 
   const addDate = () => {
     if (!draft) return;
-    if (dates.includes(draft)) {
+    if (safeDates.includes(draft)) {
       setDraft("");
       return;
     }
-    onChange([...dates, draft].sort());
+    onChange([...safeDates, draft].sort());
     setDraft("");
   };
 
-  const removeDate = (d: string) => onChange(dates.filter((x) => x !== d));
+  const removeDate = (d: string) => onChange(safeDates.filter((x) => x !== d));
 
   const formatted = (d: string) =>
     new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", weekday: "short" });
@@ -1992,11 +1992,11 @@ function UnavailableDatesEditor({
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
-      {dates.length === 0 ? (
+      {safeDates.length === 0 ? (
         <p className="text-xs" style={{ color: T.textSoft }}>Nenhuma data bloqueada.</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {dates.map((d) => (
+          {safeDates.map((d) => (
             <span
               key={d}
               className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full capitalize"
@@ -2411,7 +2411,9 @@ function VibrationalHero({ onStart }: { onStart: () => void }) {
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_1s]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_2s]" style={{ border: `1.5px solid ${T.primary}` }} />
-        <img src={logoCtv} alt="Centro de Terapias Vibracionais" className="w-20 h-20 object-contain" />
+        <div className="w-20 h-20 rounded-full bg-teal-700/20 flex items-center justify-center">
+          <Sparkles className="w-10 h-10 text-emerald-800" />
+        </div>
       </div>
       <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: T.primary }}>Centro de Terapias Vibracionais</p>
       <h1 className="text-3xl sm:text-4xl font-semibold mb-3 max-w-xl mx-auto leading-tight" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
@@ -2495,7 +2497,7 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
     <header className="sticky top-0 z-40 backdrop-blur-md border-b" style={{ background: `${T.bg}E6`, borderColor: T.border }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <button onClick={() => setView("inicio")} className="flex items-center gap-2.5">
-          <img src={logoCtv} alt="Centro de Terapias Vibracionais" className="w-10 h-10 object-contain" />
+          <Sparkles className="w-7 h-7 text-emerald-700" />
           <span className="font-semibold text-sm sm:text-base" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
             Portal CTV
           </span>
