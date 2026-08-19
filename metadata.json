@@ -1,0 +1,6 @@
+{
+  "name": "Portal CTV - Agendamento",
+  "description": "Portal de agendamento de consultas com integração para Google Calendar e WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -5,8 +5,9 @@ import {
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
   Stethoscope, Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
-  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays
+  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud
 } from "lucide-react";
+import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
 
 /* =========================================================================
    TEMA — Portal CTV (Centro de Terapias Vibracionais)
@@ -26,8 +27,8 @@ const T = {
   red: "#B3452C",
 };
 
-const WHATSAPP_NUMBER = "558499040049";
-const ADMIN_PASSWORD = "ctv1808";
+const WHATSAPP_NUMBER = "5535999999999";
+const ADMIN_PASSWORD = "ctv2024";
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 /* =========================================================================
@@ -360,8 +361,70 @@ function normalizeFAQ(raw: any): FAQItem {
 }
 
 /* =========================================================================
-   PERSISTÊNCIA — localStorage (dados salvos no navegador de cada visitante)
+   PERSISTÊNCIA — Nuvem (Firebase Firestore) + Cache Local (localStorage)
    ========================================================================= */
+function useCloudPersistedState<T extends { id: string }>(collectionName: string, key: string, initial: T[]) {
+  const [state, setState] = useState<T[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T[]) : initial;
+    } catch {
+      return initial;
+    }
+  });
+
+  const previousIdsRef = useRef<Set<string>>(new Set(state.map((s) => s.id)));
+
+  // Sincronização em tempo real com o Firebase Firestore
+  useEffect(() => {
+    const unsub = subscribeToCollection<T>(
+      collectionName,
+      (cloudItems) => {
+        if (cloudItems && cloudItems.length > 0) {
+          setState(cloudItems);
+          previousIdsRef.current = new Set(cloudItems.map((s) => s.id));
+          try {
+            window.localStorage.setItem(key, JSON.stringify(cloudItems));
+          } catch {
+            // falha silenciosa de cache
+          }
+        }
+      },
+      initial
+    );
+
+    return () => unsub();
+  }, [collectionName, key, initial]);
+
+  const persist = useCallback(
+    (value: T[]) => {
+      setState(value);
+      try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        // falha silenciosa
+      }
+
+      // Sincroniza adições/atualizações na Nuvem Firestore
+      const newIds = new Set(value.map((v) => v.id));
+      value.forEach((item) => {
+        saveDocument(collectionName, item.id, item).catch(() => {});
+      });
+
+      // Remove itens deletados da Nuvem Firestore
+      previousIdsRef.current.forEach((oldId) => {
+        if (!newIds.has(oldId)) {
+          removeDocument(collectionName, oldId).catch(() => {});
+        }
+      });
+      previousIdsRef.current = newIds;
+    },
+    [collectionName, key]
+  );
+
+  return [state, persist] as const;
+}
+
 function usePersistedState<T>(key: string, initial: T) {
   const [state, setState] = useState<T>(() => {
     try {
@@ -2295,6 +2358,18 @@ function AdminBackup({
         </div>
       )}
       <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
+        <div className="flex items-center justify-between mb-2">
+          <p className="font-semibold" style={{ color: T.dark }}>Banco de Dados em Nuvem</p>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <Cloud className="w-3.5 h-3.5" /> Firebase Firestore Ativo
+          </span>
+        </div>
+        <p className="text-sm" style={{ color: T.textSoft }}>
+          Todas as alterações de terapias, fotos dos terapeutas, horários e agendamentos são sincronizadas em tempo real na nuvem e aparecem instantaneamente em qualquer celular ou computador.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
         <p className="font-semibold mb-1.5" style={{ color: T.dark }}>Exportar dados</p>
         <p className="text-sm mb-4" style={{ color: T.textSoft }}>Baixe um arquivo .json com terapias, terapeutas e agendamentos atuais.</p>
         <button onClick={exportJSON} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110" style={{ background: T.primary }}>
@@ -2562,10 +2637,10 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
    APP
    ========================================================================= */
 export default function App() {
-  const [therapiesRaw, setTherapies] = usePersistedState<Therapy[]>("ctv:therapies", SEED_THERAPIES);
-  const [therapistsRaw, setTherapists] = usePersistedState<Therapist[]>("ctv:therapists", SEED_THERAPISTS);
-  const [appointmentsRaw, setAppointments] = usePersistedState<Appointment[]>("ctv:appointments", SEED_APPOINTMENTS);
-  const [faqsRaw, setFaqs] = usePersistedState<FAQItem[]>("ctv:faqs", SEED_FAQS);
+  const [therapiesRaw, setTherapies] = useCloudPersistedState<Therapy>("therapies", "ctv:therapies", SEED_THERAPIES);
+  const [therapistsRaw, setTherapists] = useCloudPersistedState<Therapist>("therapists", "ctv:therapists", SEED_THERAPISTS);
+  const [appointmentsRaw, setAppointments] = useCloudPersistedState<Appointment>("appointments", "ctv:appointments", SEED_APPOINTMENTS);
+  const [faqsRaw, setFaqs] = useCloudPersistedState<FAQItem>("faqs", "ctv:faqs", SEED_FAQS);
 
   // Corrige dados salvos por uma versão anterior do app, evitando tela branca.
   const therapies = useMemo(
@@ -2593,6 +2668,14 @@ export default function App() {
   const [rulerY, setRulerY] = useState(0);
   const [isSpeakingPage, setIsSpeakingPage] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
+
+  // Aplica o redimensionamento de fonte globalmente no HTML para que todas as classes Tailwind (rem) escalem
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${16 * a11y.fontScale}px`;
+    return () => {
+      document.documentElement.style.fontSize = '';
+    };
+  }, [a11y.fontScale]);
 
   useEffect(() => {
     if (!a11y.rulerActive) return;

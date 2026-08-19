@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    match /therapies/{therapyId} {
+      allow read: if true;
+      allow write: if isValidId(therapyId);
+    }
+
+    match /therapists/{therapistId} {
+      allow read: if true;
+      allow write: if isValidId(therapistId);
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if true;
+      allow create: if isValidId(appointmentId) && request.resource.data.clientName is string && request.resource.data.date is string;
+      allow update, delete: if isValidId(appointmentId);
+    }
+
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow write: if isValidId(testimonialId);
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

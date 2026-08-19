@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "Therapy": {
+      "title": "Therapy",
+      "description": "A holistic or clinical therapy offered by the clinic",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "name": { "type": "string", "description": "Therapy name" },
+        "category": { "type": "string", "description": "Category name" },
+        "shortDesc": { "type": "string", "description": "Short summary" },
+        "fullDesc": { "type": "string", "description": "Detailed description" },
+        "benefits": { "type": "array", "description": "List of benefits" },
+        "durationMin": { "type": "number", "description": "Duration in minutes" },
+        "price": { "type": "number", "description": "Price in BRL" },
+        "indications": { "type": "array", "description": "Indications" },
+        "contraindications": { "type": "array", "description": "Contraindications" },
+        "iconName": { "type": "string", "description": "Lucide icon name" },
+        "hidden": { "type": "boolean", "description": "Whether hidden from public catalog" },
+        "isSeed": { "type": "boolean", "description": "Whether it is seed default data" }
+      },
+      "required": ["id", "name", "category", "price", "durationMin"]
+    },
+    "Therapist": {
+      "title": "Therapist",
+      "description": "A healthcare or holistic practitioner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier" },
+        "name": { "type": "string", "description": "Full name" },
+        "photoUrl": { "type": "string", "description": "Profile picture URL" },
+        "specialties": { "type": "array", "description": "List of therapy IDs handled" },
+        "availability": { "type": "object", "description": "Weekly day-to-hours mapping" },
+        "unavailableDates": { "type": "array", "description": "List of YYYY-MM-DD blocked dates" },
+        "hidden": { "type": "boolean", "description": "Whether hidden from public view" },
+        "isSeed": { "type": "boolean", "description": "Whether seed data" }
+      },
+      "required": ["id", "name", "specialties", "availability"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Patient booking record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique booking identifier" },
+        "clientName": { "type": "string", "description": "Client full name" },
+        "clientPhone": { "type": "string", "description": "WhatsApp contact number" },
+        "clientEmail": { "type": "string", "description": "Contact email" },
+        "therapyId": { "type": "string", "description": "Booked therapy ID" },
+        "therapistId": { "type": "string", "description": "Assigned practitioner ID" },
+        "date": { "type": "string", "description": "Date YYYY-MM-DD" },
+        "time": { "type": "string", "description": "Time HH:mm" },
+        "notes": { "type": "string", "description": "Patient observation notes" },
+        "status": { "type": "string", "description": "Status: pending, confirmed, canceled, completed" },
+        "createdAt": { "type": "string", "description": "ISO timestamp or server time" },
+        "notificationConsent": { "type": "boolean", "description": "WhatsApp notification opt-in" },
+        "googleMeetLink": { "type": "string", "description": "Google Meet video link" },
+        "googleCalendarEventId": { "type": "string", "description": "Google Calendar synced event ID" }
+      },
+      "required": ["id", "clientName", "clientPhone", "therapyId", "therapistId", "date", "time", "status"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Patient review or feedback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "author": { "type": "string", "description": "Author name" },
+        "therapyId": { "type": "string", "description": "Associated therapy ID" },
+        "rating": { "type": "number", "description": "Rating out of 5" },
+        "comment": { "type": "string", "description": "Review text" },
+        "date": { "type": "string", "description": "Review date" },
+        "featured": { "type": "boolean", "description": "Featured testimonial flag" }
+      },
+      "required": ["id", "author", "rating", "comment"]
+    }
+  },
+  "firestore": {
+    "/therapies/{therapyId}": {
+      "schema": "Therapy",
+      "description": "Public catalog of clinic therapies and treatments"
+    },
+    "/therapists/{therapistId}": {
+      "schema": "Therapist",
+      "description": "Public practitioners directory, specialties and schedule"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Patient appointments and scheduling records"
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": "Testimonial",
+      "description": "Patient testimonials and reviews"
+    }
+  }
+}
