@@ -27,6 +27,11 @@ service cloud.firestore {
       allow write: if isValidId(testimonialId);
     }
 
+    match /faqs/{faqId} {
+      allow read: if true;
+      allow write: if isValidId(faqId);
+    }
+
     // Default deny catch-all
     match /{document=**} {
       allow read, write: if false;

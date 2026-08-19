@@ -50,8 +50,9 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -61,7 +62,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.warn('Firestore sync notice:', JSON.stringify(errInfo));
+  
+  // Se for apenas estado offline temporário, registra apenas como informação
+  if (errMessage.includes('unavailable') || errMessage.includes('offline') || errMessage.includes('Could not reach')) {
+    console.info('Firestore em cache/offline:', path);
+  } else {
+    console.warn('Firestore sync notice:', JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 
@@ -69,9 +76,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'therapies', 'test_connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is offline, using local cache.');
+  } catch (error: any) {
+    const msg = error?.message || String(error);
+    if (msg.includes('unavailable') || msg.includes('offline') || msg.includes('Could not reach')) {
+      console.info('Firestore: Operando em modo offline / cache local enquanto sincroniza com a nuvem.');
     }
   }
 }

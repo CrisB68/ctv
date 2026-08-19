@@ -73,6 +73,19 @@
         "featured": { "type": "boolean", "description": "Featured testimonial flag" }
       },
       "required": ["id", "author", "rating", "comment"]
+    },
+    "FAQ": {
+      "title": "FAQ",
+      "description": "Frequently asked questions for SAC",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "question": { "type": "string", "description": "Question" },
+        "answer": { "type": "string", "description": "Answer" },
+        "category": { "type": "string", "description": "Category" },
+        "hidden": { "type": "boolean", "description": "Hidden flag" }
+      },
+      "required": ["id", "question", "answer"]
     }
   },
   "firestore": {
@@ -91,6 +104,10 @@
     "/testimonials/{testimonialId}": {
       "schema": "Testimonial",
       "description": "Patient testimonials and reviews"
+    },
+    "/faqs/{faqId}": {
+      "schema": "FAQ",
+      "description": "Frequently asked questions"
     }
   }
 }

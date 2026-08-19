@@ -8,6 +8,7 @@ import {
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
+import CTVLogo from "./components/CTVLogo";
 
 /* =========================================================================
    TEMA — Portal CTV (Centro de Terapias Vibracionais)
@@ -1404,8 +1405,8 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="max-w-sm mx-auto py-16 text-center">
-      <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: T.primarySoft }}>
-        <Lock className="w-6 h-6" style={{ color: T.primary }} />
+      <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center p-2 border bg-white shadow-sm" style={{ borderColor: T.border }}>
+        <CTVLogo size={64} />
       </div>
       <h3 className="text-lg font-semibold mb-1" style={{ color: T.dark }}>Acesso administrativo</h3>
       <p className="text-sm mb-6" style={{ color: T.textSoft }}>Digite a senha para gerenciar o portal.</p>
@@ -2503,12 +2504,12 @@ function EmptyState({ text }: { text: string }) {
 function VibrationalHero({ onStart }: { onStart: () => void }) {
   return (
     <div className="relative overflow-hidden rounded-3xl mb-10 px-6 py-12 sm:px-12 sm:py-16 text-center" style={{ background: `linear-gradient(180deg, ${T.primarySoft}, ${T.bg})` }}>
-      <div className="relative w-28 h-28 mx-auto mb-6 flex items-center justify-center">
+      <div className="relative w-36 h-36 mx-auto mb-6 flex items-center justify-center">
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_1s]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_2s]" style={{ border: `1.5px solid ${T.primary}` }} />
-        <div className="w-20 h-20 rounded-full bg-teal-700/20 flex items-center justify-center">
-          <Sparkles className="w-10 h-10 text-emerald-800" />
+        <div className="w-28 h-28 rounded-full bg-white/90 shadow-sm flex items-center justify-center p-2 border" style={{ borderColor: T.border }}>
+          <CTVLogo size={84} />
         </div>
       </div>
       <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: T.primary }}>Centro de Terapias Vibracionais</p>
@@ -2592,11 +2593,16 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
   return (
     <header className="sticky top-0 z-40 backdrop-blur-md border-b" style={{ background: `${T.bg}E6`, borderColor: T.border }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <button onClick={() => setView("inicio")} className="flex items-center gap-2.5">
-          <Sparkles className="w-7 h-7 text-emerald-700" />
-          <span className="font-semibold text-sm sm:text-base" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
-            Portal CTV
-          </span>
+        <button onClick={() => setView("inicio")} className="flex items-center gap-2.5 group text-left">
+          <CTVLogo size={36} className="transition group-hover:scale-105" />
+          <div>
+            <span className="font-bold text-sm sm:text-base leading-tight block" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
+              Portal CTV
+            </span>
+            <span className="text-[10px] uppercase tracking-wider block font-medium -mt-0.5" style={{ color: T.textSoft }}>
+              Terapias Vibracionais
+            </span>
+          </div>
         </button>
 
         <nav className="hidden sm:flex items-center gap-1">
@@ -2827,8 +2833,9 @@ export default function App() {
         )}
       </main>
 
-      <footer className="max-w-5xl mx-auto px-4 sm:px-6 py-8 text-center">
-        <p className="text-xs" style={{ color: T.textSoft }}>Centro de Terapias Vibracionais · cuidado, presença e equilíbrio.</p>
+      <footer className="max-w-5xl mx-auto px-4 sm:px-6 py-8 text-center flex flex-col items-center gap-2.5">
+        <CTVLogo size={44} />
+        <p className="text-xs" style={{ color: T.textSoft }}>Centro de Terapias Vibracionais · Natal, RN, Brasil · Cuidado, presença e equilíbrio.</p>
       </footer>
 
       <AccessibilityToolbar
