@@ -7,17 +7,23 @@ interface CTVLogoProps {
 }
 
 export default function CTVLogo({ size = 44, className = "", showText = true }: CTVLogoProps) {
-  const [imgError, setImgError] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string | null>("/logo_CTV.png");
 
-  // Se o usuário colocar o arquivo de imagem LOGO_CTV.png ou logo.png na pasta public/assets
-  if (!imgError) {
+  // Se o usuário colocar o arquivo de imagem logo_CTV.png ou LOGO_CTV.png na pasta public
+  if (imgSrc) {
     return (
       <img
-        src="/LOGO_CTV.png"
+        src={imgSrc}
         alt="Logo CTV - Centro de Terapias Vibracionais"
         className={`object-contain shrink-0 ${className}`}
         style={{ width: typeof size === "number" ? `${size}px` : size, height: typeof size === "number" ? `${size}px` : size }}
-        onError={() => setImgError(true)}
+        onError={() => {
+          if (imgSrc === "/logo_CTV.png") {
+            setImgSrc("/LOGO_CTV.png");
+          } else {
+            setImgSrc(null);
+          }
+        }}
       />
     );
   }
