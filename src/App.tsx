@@ -5,7 +5,7 @@ import {
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
   Stethoscope, Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
-  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud
+  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
 import CTVLogo from "./components/CTVLogo";
@@ -262,7 +262,7 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
     const unsub = subscribeToCollection<T>(
       collectionName,
       (cloudItems) => {
-        if (cloudItems) {
+        if (cloudItems && cloudItems.length > 0) {
           const cleaned = cloudItems.filter((it: any) => !isLegacySeed(it));
           setState(cleaned);
           previousIdsRef.current = new Set(cleaned.map((s) => s.id));
@@ -271,6 +271,24 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
           } catch {
             // falha silenciosa de cache
           }
+        } else {
+          // Se a nuvem estiver vazia, mas houver dados locais salvos no navegador,
+          // envia-os para a nuvem para que outros dispositivos (como o celular) os recebam!
+          try {
+            const raw = window.localStorage.getItem(key);
+            if (raw) {
+              const localItems = (JSON.parse(raw) as T[]).filter((it: any) => !isLegacySeed(it));
+              if (localItems.length > 0) {
+                localItems.forEach((item) => {
+                  saveDocument(collectionName, item.id, item).catch(() => {});
+                });
+                setState(localItems);
+                previousIdsRef.current = new Set(localItems.map((s) => s.id));
+                return;
+              }
+            }
+          } catch {}
+          setState([]);
         }
       },
       initial
@@ -280,7 +298,7 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
   }, [collectionName, key, initial]);
 
   const persist = useCallback(
-    (value: T[]) => {
+    async (value: T[]) => {
       const cleaned = value.filter((it: any) => !isLegacySeed(it));
       setState(cleaned);
       try {
@@ -291,16 +309,24 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
 
       // Sincroniza adições/atualizações na Nuvem Firestore
       const newIds = new Set(cleaned.map((v) => v.id));
-      cleaned.forEach((item) => {
-        saveDocument(collectionName, item.id, item).catch(() => {});
-      });
+      for (const item of cleaned) {
+        try {
+          await saveDocument(collectionName, item.id, item);
+        } catch (err) {
+          console.error(`Erro ao sincronizar ${collectionName}/${item.id} com Firestore:`, err);
+        }
+      }
 
       // Remove itens deletados da Nuvem Firestore
-      previousIdsRef.current.forEach((oldId) => {
+      for (const oldId of Array.from(previousIdsRef.current) as string[]) {
         if (!newIds.has(oldId)) {
-          removeDocument(collectionName, oldId).catch(() => {});
+          try {
+            await removeDocument(collectionName, oldId);
+          } catch (err) {
+            console.error(`Erro ao remover ${collectionName}/${oldId} do Firestore:`, err);
+          }
         }
-      });
+      }
       previousIdsRef.current = newIds;
     },
     [collectionName, key]
@@ -2364,19 +2390,38 @@ function AdminBackup({
     reader.readAsText(file);
   };
 
-  const clearSeed = () => {
-    setTherapies(therapies.filter((t) => !t.isSeed));
-    setTherapists(therapists.filter((p) => !p.isSeed));
-    setAppointments(appointments.filter((a) => !a.isSeed));
-    setFaqs(faqs.filter((f) => !f.isSeed));
-    setMessage("Dados de exemplo removidos. Apenas os dados reais permanecem.");
+  const [syncing, setSyncing] = useState(false);
+
+  const syncNow = async () => {
+    setSyncing(true);
+    setMessage("Sincronizando todos os dados com o Firebase Firestore...");
+    try {
+      for (const t of therapies) {
+        await saveDocument("therapies", t.id, t);
+      }
+      for (const p of therapists) {
+        await saveDocument("therapists", p.id, p);
+      }
+      for (const a of appointments) {
+        await saveDocument("appointments", a.id, a);
+      }
+      for (const f of faqs) {
+        await saveDocument("faqs", f.id, f);
+      }
+      setMessage(`Sincronização concluída! ${therapists.length} terapeutas e ${therapies.length} terapias já estão salvos e sincronizados na nuvem.`);
+    } catch (e: any) {
+      setMessage(`Erro ao sincronizar: ${e?.message || "Tente novamente"}`);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
     <div className="space-y-4 max-w-xl">
       {message && (
-        <div className="rounded-xl p-3 text-sm" style={{ background: T.primarySoft, color: T.dark }}>
-          {message}
+        <div className="rounded-xl p-3.5 text-sm flex items-center justify-between gap-2" style={{ background: T.primarySoft, color: T.dark }}>
+          <span>{message}</span>
+          <button onClick={() => setMessage(null)} className="text-xs font-semibold underline">OK</button>
         </div>
       )}
       <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
@@ -2386,9 +2431,23 @@ function AdminBackup({
             <Cloud className="w-3.5 h-3.5" /> Firebase Firestore Ativo
           </span>
         </div>
-        <p className="text-sm" style={{ color: T.textSoft }}>
+        <p className="text-sm mb-4" style={{ color: T.textSoft }}>
           Todas as alterações de terapias, fotos dos terapeutas, horários e agendamentos são sincronizadas em tempo real na nuvem e aparecem instantaneamente em qualquer celular ou computador.
         </p>
+        <div className="flex items-center justify-between pt-2 border-t flex-wrap gap-2" style={{ borderColor: T.border }}>
+          <span className="text-xs" style={{ color: T.textSoft }}>
+            Cadastros ativos: <b>{therapists.length}</b> terapeutas · <b>{therapies.length}</b> terapias
+          </span>
+          <button
+            onClick={syncNow}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+            style={{ background: T.primary }}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Forçar sincronização com Nuvem"}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
@@ -2405,14 +2464,6 @@ function AdminBackup({
         <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={(e) => e.target.files?.[0] && importJSON(e.target.files[0])} />
         <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition hover:bg-black/5" style={{ borderColor: T.border, color: T.dark }}>
           <Upload className="w-4 h-4" /> Importar JSON
-        </button>
-      </div>
-
-      <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
-        <p className="font-semibold mb-1.5" style={{ color: T.dark }}>Limpar dados de exemplo</p>
-        <p className="text-sm mb-4" style={{ color: T.textSoft }}>Remove as terapias, terapeutas e agendamentos fictícios, mantendo apenas os dados reais cadastrados por você.</p>
-        <button onClick={clearSeed} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition hover:brightness-110" style={{ background: "#F6E1DA", color: T.red }}>
-          <Trash2 className="w-4 h-4" /> Limpar dados de exemplo
         </button>
       </div>
     </div>
@@ -2706,9 +2757,29 @@ export default function App() {
 
   useEffect(() => {
     if (!a11y.rulerActive) return;
-    const handler = (e: MouseEvent) => setRulerY(e.clientY);
-    window.addEventListener("mousemove", handler);
-    return () => window.removeEventListener("mousemove", handler);
+
+    // Se ainda não foi posicionado, coloca a régua em 35% da altura da tela
+    setRulerY((current) => (current === 0 ? Math.round(window.innerHeight * 0.35) : current));
+
+    const handlePointer = (e: MouseEvent | TouchEvent | PointerEvent) => {
+      if ("touches" in e && e.touches.length > 0) {
+        setRulerY(e.touches[0].clientY);
+      } else if ("clientY" in e) {
+        setRulerY(e.clientY);
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointer);
+    window.addEventListener("mousemove", handlePointer);
+    window.addEventListener("touchmove", handlePointer, { passive: true });
+    window.addEventListener("touchstart", handlePointer, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointer);
+      window.removeEventListener("mousemove", handlePointer);
+      window.removeEventListener("touchmove", handlePointer);
+      window.removeEventListener("touchstart", handlePointer);
+    };
   }, [a11y.rulerActive]);
 
   const goBook = (opts?: { therapyId?: string; therapistId?: string }) => {
@@ -2770,8 +2841,14 @@ export default function App() {
 
       {a11y.rulerActive && (
         <div
-          className="fixed left-0 right-0 h-10 pointer-events-none z-40"
-          style={{ top: rulerY - 20, background: "rgba(255, 214, 0, 0.18)", borderTop: "1px solid rgba(184,140,0,.4)", borderBottom: "1px solid rgba(184,140,0,.4)" }}
+          className="fixed left-0 right-0 h-12 pointer-events-none z-50 transition-[top] duration-75 ease-out"
+          style={{
+            top: Math.max(0, rulerY - 24),
+            background: "rgba(253, 224, 71, 0.22)",
+            borderTop: "2px solid rgba(202, 138, 4, 0.65)",
+            borderBottom: "2px solid rgba(202, 138, 4, 0.65)",
+            boxShadow: "0 0 12px rgba(202, 138, 4, 0.2)",
+          }}
         />
       )}
 

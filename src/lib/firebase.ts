@@ -86,6 +86,29 @@ export async function testConnection() {
 
 testConnection();
 
+/**
+ * Remove recursivamente todas as propriedades `undefined` de um objeto,
+ * pois o Firestore lança erro crítico caso qualquer campo seja `undefined`.
+ */
+export function cleanForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanForFirestore).filter((item) => item !== undefined);
+  }
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanForFirestore(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 // Real-time Firestore sync helpers
 export function subscribeToCollection<T extends { id: string }>(
   collectionName: string,
@@ -127,7 +150,9 @@ export async function saveDocument<T extends Record<string, any>>(
   const path = `${collectionName}/${docId}`;
   try {
     const docRef = doc(db, collectionName, docId);
-    await setDoc(docRef, data, { merge: true });
+    const sanitized = cleanForFirestore(data);
+    await setDoc(docRef, sanitized, { merge: true });
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
@@ -139,6 +164,7 @@ export async function removeDocument(collectionName: string, docId: string) {
   try {
     const docRef = doc(db, collectionName, docId);
     await deleteDoc(docRef);
+    return true;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
     throw error;
