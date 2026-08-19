@@ -27,7 +27,7 @@ const T = {
   red: "#B3452C",
 };
 
-const WHATSAPP_NUMBER = "5535999999999";
+const WHATSAPP_NUMBER = "558499040049";
 const ADMIN_PASSWORD = "ctv2024";
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -95,203 +95,59 @@ const ICONS: Record<IconKey, React.ElementType> = {
 };
 
 /* =========================================================================
-   DADOS INICIAIS (mock)
+   DADOS INICIAIS (Base limpa para cadastro de até 50+ terapias e terapeutas)
    ========================================================================= */
-const SEED_THERAPIES: Therapy[] = [
-  {
-    id: "th-reiki",
-    name: "Reiki Terapêutico",
-    icon: "handheart",
-    summary: "Canalização de energia vital para equilíbrio físico e emocional.",
-    description:
-      "O Reiki é uma técnica japonesa de harmonização energética realizada através da imposição leve das mãos, ajudando a liberar bloqueios, reduzir o estresse e restaurar o equilíbrio natural do corpo.",
-    benefits: ["Reduz ansiedade e estresse", "Melhora a qualidade do sono", "Promove relaxamento profundo", "Auxilia no equilíbrio emocional"],
-    duration: "50 minutos",
-    contribution: "R$ 90 (contribuição consciente)",
-    modality: "ambas",
-    hidden: false,
-    isSeed: true,
-  },
-  {
-    id: "th-constelacao",
-    name: "Constelação Familiar",
-    icon: "users",
-    summary: "Vivência sistêmica para revelar e reorganizar dinâmicas familiares.",
-    description:
-      "Abordagem terapêutica que investiga padrões inconscientes transmitidos entre gerações, trazendo clareza e movimentos de cura para conflitos familiares, relacionamentos e repetições de vida.",
-    benefits: ["Revela padrões familiares ocultos", "Alivia conflitos de relacionamento", "Traz clareza sobre repetições de vida", "Promove pertencimento e paz"],
-    duration: "1h30",
-    contribution: "R$ 120 (contribuição consciente)",
-    modality: "ambas",
-    hidden: false,
-    isSeed: true,
-  },
-  {
-    id: "th-cristais",
-    name: "Terapia de Cristais e Sons",
-    icon: "gem",
-    summary: "Cristais e instrumentos sonoros para reequilíbrio vibracional.",
-    description:
-      "Sessão que une o poder vibracional dos cristais com tigelas tibetanas e instrumentos de sonoterapia, induzindo um estado profundo de relaxamento e realinhamento energético.",
-    benefits: ["Realinha os centros de energia", "Diminui tensão muscular", "Amplia estados meditativos", "Harmoniza corpo e mente"],
-    duration: "60 minutos",
-    contribution: "R$ 100 (contribuição consciente)",
-    modality: "ambas",
-    hidden: false,
-    isSeed: true,
-  },
-  {
-    id: "th-florais",
-    name: "Florais de Bach",
-    icon: "flower",
-    summary: "Essências florais para apoio emocional sutil e contínuo.",
-    description:
-      "Sistema terapêutico baseado em essências florais que atuam sobre estados emocionais como medo, insegurança e desânimo, apoiando transformações sutis e duradouras no dia a dia.",
-    benefits: ["Apoia estados emocionais delicados", "Fortalece o autoconhecimento", "Ação suave e gradual", "Sem contraindicações"],
-    duration: "40 minutos (consulta)",
-    contribution: "R$ 80 (contribuição consciente)",
-    modality: "ambas",
-    hidden: false,
-    isSeed: true,
-  },
-];
-
-const SEED_THERAPISTS: Therapist[] = [
-  {
-    id: "pr-ana",
-    name: "Ana Beatriz Souza",
-    photoUrl: "",
-    specialties: ["th-reiki", "th-florais"],
-    availability: {
-      Segunda: ["09:00", "10:00", "11:00"],
-      Quarta: ["14:00", "15:00", "16:00"],
-      Sexta: ["09:00", "10:00"],
-    },
-    unavailableDates: [],
-    hidden: false,
-    isSeed: true,
-  },
-  {
-    id: "pr-carlos",
-    name: "Carlos Henrique Lima",
-    photoUrl: "",
-    specialties: ["th-constelacao", "th-cristais"],
-    availability: {
-      Terça: ["14:00", "16:00", "18:00"],
-      Quinta: ["09:00", "11:00"],
-      Sábado: ["09:00", "10:00", "11:00"],
-    },
-    unavailableDates: [],
-    hidden: false,
-    isSeed: true,
-  },
-  {
-    id: "pr-mariana",
-    name: "Mariana Costa",
-    photoUrl: "",
-    specialties: ["th-reiki", "th-constelacao", "th-florais"],
-    availability: {
-      Segunda: ["14:00", "15:00"],
-      Terça: ["09:00", "10:00"],
-      Quinta: ["14:00", "15:00", "16:00"],
-    },
-    unavailableDates: [],
-    hidden: false,
-    isSeed: true,
-  },
-];
+const SEED_THERAPIES: Therapy[] = [];
+const SEED_THERAPISTS: Therapist[] = [];
+const SEED_APPOINTMENTS: Appointment[] = [];
 
 const SEED_FAQS: FAQItem[] = [
   {
     id: "faq-1",
-    question: "Preciso agendar com antecedência?",
-    answer: "Sim, recomendamos agendar com pelo menos 2 dias de antecedência para garantir o horário com o terapeuta de sua preferência.",
+    question: "Como funciona o agendamento no Portal CTV?",
+    answer: "Você escolhe a terapia desejada, o terapeuta de sua preferência, a data e horário disponíveis. Ao finalizar, enviamos os detalhes diretamente para o nosso WhatsApp oficial para confirmação.",
     hidden: false,
-    isSeed: true,
   },
   {
     id: "faq-2",
     question: "As sessões a distância funcionam mesmo?",
-    answer: "Sim! As terapias vibracionais como Reiki e Florais de Bach têm excelentes resultados também à distância, pois trabalham no campo energético, que não depende de proximidade física.",
+    answer: "Sim! As terapias vibracionais trabalham no campo sutil e energético, permitindo atendimento com excelente profundidade e acolhimento tanto presencial quanto à distância.",
     hidden: false,
-    isSeed: true,
   },
   {
     id: "faq-3",
     question: "Como funciona a contribuição consciente?",
-    answer: "É um valor sugerido para cada terapia, mas conversamos abertamente caso você esteja passando por dificuldades financeiras — o cuidado vem sempre em primeiro lugar.",
+    answer: "É um valor sugerido para apoiar a sustentabilidade do espaço e dos terapeutas, conversado com abertura e acolhimento caso você necessite de flexibilidade.",
     hidden: false,
-    isSeed: true,
   },
   {
     id: "faq-4",
     question: "Posso cancelar ou remarcar minha sessão?",
-    answer: "Claro. Basta entrar em contato pelo WhatsApp com pelo menos 12 horas de antecedência para reagendarmos sem custo.",
+    answer: "Sim. Basta entrar em contato pelo WhatsApp (84) 9904-0049 com antecedência para que possamos reorganizar seu horário.",
     hidden: false,
-    isSeed: true,
-  },
-];
-
-const WEEKDAY_JS_INDEX: Record<string, number> = {
-  Domingo: 0,
-  Segunda: 1,
-  Terça: 2,
-  Quarta: 3,
-  Quinta: 4,
-  Sexta: 5,
-  Sábado: 6,
-};
-
-/** Retorna a data (YYYY-MM-DD) da próxima ocorrência do dia da semana informado. */
-function nextDateForWeekday(dayName: string): string {
-  const targetIdx = WEEKDAY_JS_INDEX[dayName] ?? 1;
-  const d = new Date();
-  const diff = (targetIdx - d.getDay() + 7) % 7 || 7;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Dado um YYYY-MM-DD, retorna o nome do dia da semana (em português) ou null se for domingo (clínica fechada). */
-function weekdayNameFromDate(dateStr: string): string | null {
-  if (!dateStr) return null;
-  const d = new Date(dateStr + "T00:00:00");
-  const idx = d.getDay();
-  const entry = Object.entries(WEEKDAY_JS_INDEX).find(([, v]) => v === idx);
-  const name = entry?.[0] ?? null;
-  return name && WEEKDAYS.includes(name) ? name : null;
-}
-
-const SEED_APPOINTMENTS: Appointment[] = [
-  {
-    id: "ap-seed-1",
-    therapyId: "th-reiki",
-    therapistId: "pr-ana",
-    date: nextDateForWeekday("Segunda"),
-    time: "10:00",
-    modality: "presencial",
-    clientName: "Fernanda Alves",
-    clientPhone: "5535988887777",
-    status: "confirmado",
-    createdAt: new Date().toISOString(),
-    isSeed: true,
-  },
-  {
-    id: "ap-seed-2",
-    therapyId: "th-cristais",
-    therapistId: "pr-carlos",
-    date: nextDateForWeekday("Terça"),
-    time: "16:00",
-    modality: "distancia",
-    clientName: "Roberto Nunes",
-    clientPhone: "5535977776666",
-    status: "pendente",
-    createdAt: new Date().toISOString(),
-    isSeed: true,
   },
 ];
 
 function genId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function weekdayNameFromDate(dateStr: string): string | null {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const d = new Date(year, month - 1, day);
+  const dayIndex = d.getDay(); // 0 = Domingo, 1 = Segunda...
+  if (dayIndex === 0) return null; // Domingo
+  const map: Record<number, string> = {
+    1: "Segunda",
+    2: "Terça",
+    3: "Quarta",
+    4: "Quinta",
+    5: "Sexta",
+    6: "Sábado",
+  };
+  return map[dayIndex] ?? null;
 }
 
 /**
@@ -360,6 +216,23 @@ function normalizeFAQ(raw: any): FAQItem {
   };
 }
 
+const LEGACY_SEED_IDS = new Set([
+  "th-reiki",
+  "th-constelacao",
+  "th-cristais",
+  "th-florais",
+  "pr-ana",
+  "pr-carlos",
+  "pr-mariana",
+  "ap-seed-1",
+  "ap-seed-2",
+]);
+
+function isLegacySeed(item: any): boolean {
+  if (!item) return false;
+  return !!item.isSeed || (typeof item.id === "string" && LEGACY_SEED_IDS.has(item.id));
+}
+
 /* =========================================================================
    PERSISTÊNCIA — Nuvem (Firebase Firestore) + Cache Local (localStorage)
    ========================================================================= */
@@ -367,7 +240,15 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
   const [state, setState] = useState<T[]>(() => {
     try {
       const raw = window.localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T[]) : initial;
+      if (raw) {
+        const parsed = JSON.parse(raw) as T[];
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((it: any) => !isLegacySeed(it));
+          window.localStorage.setItem(key, JSON.stringify(cleaned));
+          return cleaned;
+        }
+      }
+      return initial;
     } catch {
       return initial;
     }
@@ -380,11 +261,12 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
     const unsub = subscribeToCollection<T>(
       collectionName,
       (cloudItems) => {
-        if (cloudItems && cloudItems.length > 0) {
-          setState(cloudItems);
-          previousIdsRef.current = new Set(cloudItems.map((s) => s.id));
+        if (cloudItems) {
+          const cleaned = cloudItems.filter((it: any) => !isLegacySeed(it));
+          setState(cleaned);
+          previousIdsRef.current = new Set(cleaned.map((s) => s.id));
           try {
-            window.localStorage.setItem(key, JSON.stringify(cloudItems));
+            window.localStorage.setItem(key, JSON.stringify(cleaned));
           } catch {
             // falha silenciosa de cache
           }
@@ -398,16 +280,17 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
 
   const persist = useCallback(
     (value: T[]) => {
-      setState(value);
+      const cleaned = value.filter((it: any) => !isLegacySeed(it));
+      setState(cleaned);
       try {
-        window.localStorage.setItem(key, JSON.stringify(value));
+        window.localStorage.setItem(key, JSON.stringify(cleaned));
       } catch {
         // falha silenciosa
       }
 
       // Sincroniza adições/atualizações na Nuvem Firestore
-      const newIds = new Set(value.map((v) => v.id));
-      value.forEach((item) => {
+      const newIds = new Set(cleaned.map((v) => v.id));
+      cleaned.forEach((item) => {
         saveDocument(collectionName, item.id, item).catch(() => {});
       });
 
@@ -926,51 +809,82 @@ function TherapistsSection({
   onBookWith: (therapistId: string) => void;
 }) {
   const [dayFilter, setDayFilter] = useState<string>("todos");
+  const [query, setQuery] = useState("");
 
-  const filtered = sortByName(
-    therapists.filter(
-      (p) => !p.hidden && (dayFilter === "todos" || (p.availability[dayFilter]?.length ?? 0) > 0)
-    )
-  );
+  const visibleTherapists = therapists.filter((p) => !p.hidden);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const result = visibleTherapists.filter((p) => {
+      const matchesDay = dayFilter === "todos" || (p.availability[dayFilter]?.length ?? 0) > 0;
+      if (!matchesDay) return false;
+      if (!q) return true;
+      const matchesName = p.name.toLowerCase().includes(q);
+      const matchesSpec = p.specialties.some((id) => {
+        const th = therapies.find((t) => t.id === id);
+        return th?.name.toLowerCase().includes(q);
+      });
+      return matchesName || matchesSpec;
+    });
+    return sortByName(result);
+  }, [visibleTherapists, dayFilter, query, therapies]);
 
   return (
     <section>
-      <SectionHeader
-        eyebrow="Corpo clínico"
-        title="Nossos terapeutas"
-        subtitle="Profissionais dedicados a acompanhar sua jornada de cuidado e autoconhecimento."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+        <SectionHeader
+          eyebrow="Corpo clínico"
+          title="Nossos terapeutas"
+          subtitle="Profissionais dedicados a acompanhar sua jornada de cuidado e autoconhecimento."
+          noMarginBottom
+        />
+        <span className="text-xs font-semibold px-3 py-1.5 rounded-full self-start sm:self-auto" style={{ background: T.primarySoft, color: T.dark }}>
+          {filtered.length} {filtered.length === 1 ? "terapeuta" : "terapeutas"}
+        </span>
+      </div>
 
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        <button
-          onClick={() => setDayFilter("todos")}
-          className="px-4 py-2 rounded-full text-sm font-medium border whitespace-nowrap transition"
-          style={{
-            borderColor: dayFilter === "todos" ? T.primary : T.border,
-            background: dayFilter === "todos" ? T.primary : T.card,
-            color: dayFilter === "todos" ? "#fff" : T.text,
-          }}
-        >
-          Todos os dias
-        </button>
-        {WEEKDAYS.map((d) => (
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por terapeuta ou especialidade…"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border text-sm outline-none focus:ring-2 transition"
+            style={{ borderColor: T.border, background: T.card, color: T.text }}
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
           <button
-            key={d}
-            onClick={() => setDayFilter(d)}
-            className="px-4 py-2 rounded-full text-sm font-medium border whitespace-nowrap transition"
+            onClick={() => setDayFilter("todos")}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium border whitespace-nowrap transition"
             style={{
-              borderColor: dayFilter === d ? T.primary : T.border,
-              background: dayFilter === d ? T.primary : T.card,
-              color: dayFilter === d ? "#fff" : T.text,
+              borderColor: dayFilter === "todos" ? T.primary : T.border,
+              background: dayFilter === "todos" ? T.primary : T.card,
+              color: dayFilter === "todos" ? "#fff" : T.text,
             }}
           >
-            {d}
+            Todos os dias
           </button>
-        ))}
+          {WEEKDAYS.map((d) => (
+            <button
+              key={d}
+              onClick={() => setDayFilter(d)}
+              className="px-3.5 py-2.5 rounded-xl text-sm font-medium border whitespace-nowrap transition"
+              style={{
+                borderColor: dayFilter === d ? T.primary : T.border,
+                background: dayFilter === d ? T.primary : T.card,
+                color: dayFilter === d ? "#fff" : T.text,
+              }}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState text="Nenhum terapeuta disponível nesse dia." />
+        <EmptyState text={therapists.length === 0 ? "Nenhum terapeuta cadastrado no momento. Cadastre no Painel Admin." : "Nenhum terapeuta encontrado com esses filtros."} />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => {
@@ -984,7 +898,9 @@ function TherapistsSection({
                   <TherapistAvatar therapist={p} />
                   <div>
                     <h3 className="font-semibold" style={{ color: T.dark }}>{p.name}</h3>
-                    <p className="text-xs" style={{ color: T.textSoft }}>{specialtyNames.join(" · ")}</p>
+                    <p className="text-xs" style={{ color: T.textSoft }}>
+                      {specialtyNames.length > 0 ? specialtyNames.join(" · ") : "Terapias Integrativas"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-4">
@@ -1038,6 +954,8 @@ function BookingWizard({
   const [step, setStep] = useState(1);
   const [therapyId, setTherapyId] = useState<string | null>(presetTherapyId ?? null);
   const [therapistId, setTherapistId] = useState<string | null>(presetTherapistId ?? null);
+  const [therapySearch, setTherapySearch] = useState("");
+  const [therapistSearch, setTherapistSearch] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [modality, setModality] = useState<"presencial" | "distancia">("presencial");
@@ -1057,9 +975,22 @@ function BookingWizard({
   }, [presetTherapyId, presetTherapistId]);
 
   const visibleTherapies = sortByName(therapies.filter((t) => !t.hidden));
+  const filteredTherapies = useMemo(() => {
+    const q = therapySearch.trim().toLowerCase();
+    if (!q) return visibleTherapies;
+    return visibleTherapies.filter(
+      (t) => t.name.toLowerCase().includes(q) || t.summary.toLowerCase().includes(q)
+    );
+  }, [visibleTherapies, therapySearch]);
+
   const eligibleTherapists = sortByName(
     therapists.filter((p) => !p.hidden && (!therapyId || p.specialties.includes(therapyId)))
   );
+  const filteredTherapists = useMemo(() => {
+    const q = therapistSearch.trim().toLowerCase();
+    if (!q) return eligibleTherapists;
+    return eligibleTherapists.filter((p) => p.name.toLowerCase().includes(q));
+  }, [eligibleTherapists, therapistSearch]);
 
   const selectedTherapy = therapies.find((t) => t.id === therapyId);
   const selectedTherapist = therapists.find((p) => p.id === therapistId);
@@ -1154,6 +1085,8 @@ function BookingWizard({
             setStep(1);
             setTherapyId(null);
             setTherapistId(null);
+            setTherapySearch("");
+            setTherapistSearch("");
             setDate("");
             setTime("");
             setClientName("");
@@ -1202,82 +1135,109 @@ function BookingWizard({
       <div className="rounded-2xl border p-6" style={{ borderColor: T.border, background: T.card }}>
         {step === 1 && (
           <div className="animate-[fadeIn_.2s_ease]">
-            <p className="text-sm font-medium mb-2" style={{ color: T.text }}>Escolha a terapia</p>
-            <label className="block mb-4">
-              <span className="text-xs mb-1 block" style={{ color: T.textSoft }}>Ou selecione pela lista</span>
-              <select
-                value={therapyId ?? ""}
-                onChange={(e) => setTherapyId(e.target.value || null)}
-                className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none"
-                style={{ borderColor: T.border, color: T.text }}
-              >
-                <option value="">Selecione uma terapia…</option>
-                {visibleTherapies.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            </label>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {visibleTherapies.map((t) => {
-                const IconEl = ICONS[t.icon];
-                const selected = therapyId === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTherapyId(t.id)}
-                    className="text-left rounded-xl p-4 border-2 transition flex items-start gap-3"
-                    style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
-                  >
-                    <IconEl className="w-5 h-5 mt-0.5 shrink-0" style={{ color: T.primary }} />
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: T.dark }}>{t.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: T.textSoft }}>{t.duration}</p>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-sm font-medium" style={{ color: T.text }}>Escolha a terapia</p>
+              <span className="text-xs" style={{ color: T.textSoft }}>{visibleTherapies.length} disponíveis</span>
             </div>
+
+            {visibleTherapies.length === 0 ? (
+              <EmptyState text="Nenhuma terapia cadastrada ainda. Acesse o Painel Admin para cadastrar suas terapias." />
+            ) : (
+              <>
+                <div className="relative mb-4">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
+                  <input
+                    value={therapySearch}
+                    onChange={(e) => setTherapySearch(e.target.value)}
+                    placeholder="Filtrar por nome ou tema…"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                    style={{ borderColor: T.border, color: T.text }}
+                  />
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                  {filteredTherapies.map((t) => {
+                    const IconEl = ICONS[t.icon] ?? Sparkles;
+                    const selected = therapyId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setTherapyId(t.id)}
+                        className="text-left rounded-xl p-4 border-2 transition flex items-start gap-3"
+                        style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
+                      >
+                        <IconEl className="w-5 h-5 mt-0.5 shrink-0" style={{ color: T.primary }} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: T.dark }}>{t.name}</p>
+                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: T.textSoft }}>{t.summary || t.duration}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredTherapies.length === 0 && (
+                    <div className="sm:col-span-2 py-6 text-center text-xs" style={{ color: T.textSoft }}>
+                      Nenhuma terapia encontrada com esse termo.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {step === 2 && (
           <div className="animate-[fadeIn_.2s_ease]">
-            <p className="text-sm font-medium mb-2" style={{ color: T.text }}>Escolha o terapeuta</p>
-            <label className="block mb-4">
-              <span className="text-xs mb-1 block" style={{ color: T.textSoft }}>Ou selecione pela lista</span>
-              <select
-                value={therapistId ?? ""}
-                onChange={(e) => setTherapistId(e.target.value || null)}
-                className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none"
-                style={{ borderColor: T.border, color: T.text }}
-              >
-                <option value="">Selecione um terapeuta…</option>
-                {eligibleTherapists.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {eligibleTherapists.map((p) => {
-                const selected = therapistId === p.id;
-                const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setTherapistId(p.id)}
-                    className="text-left rounded-xl p-4 border-2 transition flex items-center gap-3"
-                    style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
-                  >
-                    <TherapistAvatar therapist={p} size="w-9 h-9" />
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: T.dark }}>{p.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: T.textSoft }}>{activeDays.join(", ") || "Sem horários cadastrados"}</p>
-                    </div>
-                  </button>
-                );
-              })}
-              {eligibleTherapists.length === 0 && <EmptyState text="Nenhum terapeuta disponível para essa terapia." />}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-sm font-medium" style={{ color: T.text }}>Escolha o terapeuta</p>
+              <span className="text-xs" style={{ color: T.textSoft }}>{eligibleTherapists.length} disponíveis</span>
             </div>
+
+            {eligibleTherapists.length === 0 ? (
+              <EmptyState text={therapists.length === 0 ? "Nenhum terapeuta cadastrado ainda." : "Nenhum terapeuta vinculado a esta terapia no momento."} />
+            ) : (
+              <>
+                <div className="relative mb-4">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
+                  <input
+                    value={therapistSearch}
+                    onChange={(e) => setTherapistSearch(e.target.value)}
+                    placeholder="Filtrar terapeutas por nome…"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                    style={{ borderColor: T.border, color: T.text }}
+                  />
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                  {filteredTherapists.map((p) => {
+                    const selected = therapistId === p.id;
+                    const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setTherapistId(p.id)}
+                        className="text-left rounded-xl p-4 border-2 transition flex items-center gap-3"
+                        style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
+                      >
+                        <TherapistAvatar therapist={p} size="w-10 h-10" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate" style={{ color: T.dark }}>{p.name}</p>
+                          <p className="text-xs mt-0.5 truncate" style={{ color: T.textSoft }}>
+                            {activeDays.length > 0 ? activeDays.join(", ") : "Consulte horários"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredTherapists.length === 0 && (
+                    <div className="sm:col-span-2 py-6 text-center text-xs" style={{ color: T.textSoft }}>
+                      Nenhum terapeuta encontrado com esse termo.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1658,6 +1618,7 @@ function AdminTherapies({
 }) {
   const [editing, setEditing] = useState<Therapy | null>(null);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
 
   const save = (t: Therapy, linkedTherapistIds: string[]) => {
     if (therapies.find((x) => x.id === t.id)) {
@@ -1686,6 +1647,12 @@ function AdminTherapies({
   const toggleHidden = (id: string) =>
     setTherapies(therapies.map((t) => (t.id === id ? { ...t, hidden: !t.hidden } : t)));
 
+  const filteredTherapies = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return therapies;
+    return therapies.filter((t) => t.name.toLowerCase().includes(q) || t.summary.toLowerCase().includes(q));
+  }, [therapies, search]);
+
   if (editing || creating) {
     return (
       <TherapyForm
@@ -1702,15 +1669,32 @@ function AdminTherapies({
 
   return (
     <div>
-      <button
-        onClick={() => setCreating(true)}
-        className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
-        style={{ background: T.primary }}
-      >
-        <Plus className="w-4 h-4" /> Nova terapia
-      </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
+          style={{ background: T.primary }}
+        >
+          <Plus className="w-4 h-4" /> Nova terapia
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar terapia…"
+              className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
+              style={{ borderColor: T.border, color: T.text }}
+            />
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-lg border font-medium shrink-0" style={{ borderColor: T.border, color: T.textSoft }}>
+            {therapies.length} total
+          </span>
+        </div>
+      </div>
       <div className="space-y-2">
-        {therapies.map((t) => {
+        {filteredTherapies.map((t) => {
           const linkedNames = therapists.filter((p) => p.specialties.includes(t.id)).map((p) => p.name);
           return (
             <div key={t.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: t.hidden ? 0.55 : 1 }}>
@@ -1735,6 +1719,9 @@ function AdminTherapies({
             </div>
           );
         })}
+        {filteredTherapies.length === 0 && (
+          <EmptyState text={therapies.length === 0 ? "Nenhuma terapia cadastrada." : "Nenhuma terapia encontrada para esta busca."} />
+        )}
       </div>
     </div>
   );
@@ -1857,6 +1844,7 @@ function AdminTherapists({
 }) {
   const [editing, setEditing] = useState<Therapist | null>(null);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
 
   const save = (p: Therapist) => {
     if (therapists.find((x) => x.id === p.id)) {
@@ -1871,6 +1859,19 @@ function AdminTherapists({
   const remove = (id: string) => setTherapists(therapists.filter((p) => p.id !== id));
   const toggleHidden = (id: string) =>
     setTherapists(therapists.map((p) => (p.id === id ? { ...p, hidden: !p.hidden } : p)));
+
+  const filteredTherapists = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return therapists;
+    return therapists.filter((p) => {
+      const matchName = p.name.toLowerCase().includes(q);
+      const matchTherapy = p.specialties.some((sid) => {
+        const th = therapies.find((t) => t.id === sid);
+        return th && th.name.toLowerCase().includes(q);
+      });
+      return matchName || matchTherapy;
+    });
+  }, [therapists, therapies, search]);
 
   if (editing || creating) {
     return (
@@ -1888,15 +1889,32 @@ function AdminTherapists({
 
   return (
     <div>
-      <button
-        onClick={() => setCreating(true)}
-        className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
-        style={{ background: T.primary }}
-      >
-        <Plus className="w-4 h-4" /> Novo terapeuta
-      </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
+          style={{ background: T.primary }}
+        >
+          <Plus className="w-4 h-4" /> Novo terapeuta
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar terapeuta…"
+              className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
+              style={{ borderColor: T.border, color: T.text }}
+            />
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-lg border font-medium shrink-0" style={{ borderColor: T.border, color: T.textSoft }}>
+            {therapists.length} total
+          </span>
+        </div>
+      </div>
       <div className="space-y-2">
-        {therapists.map((p) => {
+        {filteredTherapists.map((p) => {
           const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
           return (
             <div key={p.id} className="rounded-xl p-4 border flex items-center justify-between gap-3" style={{ borderColor: T.border, background: T.card, opacity: p.hidden ? 0.55 : 1 }}>
@@ -1921,6 +1939,9 @@ function AdminTherapists({
             </div>
           );
         })}
+        {filteredTherapists.length === 0 && (
+          <EmptyState text={therapists.length === 0 ? "Nenhum terapeuta cadastrado." : "Nenhum terapeuta encontrado para esta busca."} />
+        )}
       </div>
     </div>
   );
@@ -2642,17 +2663,17 @@ export default function App() {
   const [appointmentsRaw, setAppointments] = useCloudPersistedState<Appointment>("appointments", "ctv:appointments", SEED_APPOINTMENTS);
   const [faqsRaw, setFaqs] = useCloudPersistedState<FAQItem>("faqs", "ctv:faqs", SEED_FAQS);
 
-  // Corrige dados salvos por uma versão anterior do app, evitando tela branca.
+  // Corrige dados salvos por uma versão anterior do app, evitando tela branca e limpando dados antigos de teste.
   const therapies = useMemo(
-    () => (Array.isArray(therapiesRaw) ? therapiesRaw.map(normalizeTherapy) : SEED_THERAPIES),
+    () => (Array.isArray(therapiesRaw) ? therapiesRaw.filter((t) => !isLegacySeed(t)).map(normalizeTherapy) : []),
     [therapiesRaw]
   );
   const therapists = useMemo(
-    () => (Array.isArray(therapistsRaw) ? therapistsRaw.map(normalizeTherapist) : SEED_THERAPISTS),
+    () => (Array.isArray(therapistsRaw) ? therapistsRaw.filter((p) => !isLegacySeed(p)).map(normalizeTherapist) : []),
     [therapistsRaw]
   );
   const appointments = useMemo(
-    () => (Array.isArray(appointmentsRaw) ? appointmentsRaw.map(normalizeAppointment) : SEED_APPOINTMENTS),
+    () => (Array.isArray(appointmentsRaw) ? appointmentsRaw.filter((a) => !isLegacySeed(a)).map(normalizeAppointment) : []),
     [appointmentsRaw]
   );
   const faqs = useMemo(

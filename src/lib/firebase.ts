@@ -9,7 +9,19 @@ import {
   getDocFromServer,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+
+export const firebaseConfig = {
+  projectId: "zinc-replica-lxctm",
+  appId: "1:529124697282:web:9f6eb659dcc231cb27c75b",
+  apiKey: "AIzaSyCcXvGJmS2XLMbNHGqLZ5fyFrgMipLkV5g",
+  authDomain: "zinc-replica-lxctm.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-portalctvagendam-6e5ac8ed-ad0b-4609-bce7-f49cefa27949",
+  storageBucket: "zinc-replica-lxctm.firebasestorage.app",
+  messagingSenderId: "529124697282",
+  measurementId: "",
+  oAuthClientId: "529124697282-6mvbvrtp959m4e8cep77bvao6aub86qu.apps.googleusercontent.com",
+  recaptchaSiteKey: ""
+};
 
 // Initialize Firebase SDK
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
