@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 
 interface CTVLogoProps {
   size?: number | string;
@@ -7,33 +7,16 @@ interface CTVLogoProps {
 }
 
 export default function CTVLogo({ size = 44, className = "", showText = true }: CTVLogoProps) {
-  const [imgSrc, setImgSrc] = useState<string | null>("/logo_CTV.png");
-
-  // Se o usuário colocar o arquivo de imagem logo_CTV.png ou LOGO_CTV.png na pasta public
-  if (imgSrc) {
-    return (
-      <img
-        src={imgSrc}
-        alt="Logo CTV - Centro de Terapias Vibracionais"
-        className={`object-contain shrink-0 ${className}`}
-        style={{ width: typeof size === "number" ? `${size}px` : size, height: typeof size === "number" ? `${size}px` : size }}
-        onError={() => {
-          if (imgSrc === "/logo_CTV.png") {
-            setImgSrc("/LOGO_CTV.png");
-          } else {
-            setImgSrc(null);
-          }
-        }}
-      />
-    );
-  }
-
-  // Renderização Vetorial SVG de alta fidelidade
+  // Renderização Vetorial SVG de alta fidelidade com 100% de transparência no fundo
   return (
     <svg
       viewBox="0 0 500 500"
       className={`shrink-0 select-none ${className}`}
-      style={{ width: typeof size === "number" ? `${size}px` : size, height: typeof size === "number" ? `${size}px` : size }}
+      style={{
+        width: typeof size === "number" ? `${size}px` : size,
+        height: typeof size === "number" ? `${size}px` : size,
+        backgroundColor: "transparent",
+      }}
       aria-label="Centro de Terapias Vibracionais - Natal RN Brasil"
     >
       <defs>
@@ -68,9 +51,9 @@ export default function CTVLogo({ size = 44, className = "", showText = true }: 
         <ellipse cx="250" cy="250" rx="72" ry="152" transform="rotate(90 250 250)" />
       </g>
 
-      {/* Núcleo Central Yin-Yang (+ e -) */}
+      {/* Núcleo Central Yin-Yang (+ e -) com fundo transparente */}
       <g transform="translate(250, 250)">
-        {/* Círculo base de corte */}
+        {/* Metade Preta */}
         <circle cx="0" cy="0" r="36" fill="#111111" />
         {/* Metade Vermelha */}
         <path

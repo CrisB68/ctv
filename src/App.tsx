@@ -3,7 +3,7 @@ import {
   Sparkles, HandHeart, Users, Gem, Flower2, Calendar, Clock, MapPin, Wifi,
   Search, X, ChevronRight, ChevronLeft, Check, Volume2, VolumeX, Ruler,
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
-  Stethoscope, Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
+  Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw
 } from "lucide-react";
@@ -370,6 +370,52 @@ function cx(...parts: (string | false | undefined | null)[]) {
 /** Ordena por nome em ordem alfabética (pt-BR), usado nas listagens públicas. */
 function sortByName<T extends { name: string }>(arr: T[]): T[] {
   return [...arr].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+}
+
+/* =========================================================================
+   FORMATAÇÃO & SANITIZAÇÃO DE WHATSAPP (Resistente a espaçamento e erros)
+   ========================================================================= */
+/** Máscara amigável e tolerante de telefone brasileiro: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX */
+function maskPhone(value: string): string {
+  const digits = (value || "").replace(/\D/g, "").slice(0, 11);
+  if (!digits) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+}
+
+/** 
+ * Higieniza qualquer entrada de telefone para o padrão internacional numérico exato exigido pelo wa.me
+ * Aceita espaços, hífens, parênteses, ausência de DDD ou ausência de DDI (55)
+ */
+function sanitizePhoneForWhatsApp(phone: string): string {
+  let digits = (phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  
+  // Remove zero à esquerda caso o usuário digite ex.: 084 99999-9999
+  if (digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+  
+  // Se digitou apenas 8 ou 9 dígitos locais sem DDD, adiciona o DDD padrão de Natal/RN (84)
+  if (digits.length === 8 || digits.length === 9) {
+    digits = "84" + digits;
+  }
+  
+  // Se tem 10 ou 11 dígitos (DDD + número), adiciona o DDI do Brasil (55)
+  if (digits.length === 10 || digits.length === 11) {
+    digits = "55" + digits;
+  }
+  
+  return digits;
+}
+
+/** Gera link wa.me 100% à prova de erros de digitação e espaçamento */
+function getWhatsAppUrl(phone: string, message?: string): string {
+  const cleanPhone = sanitizePhoneForWhatsApp(phone);
+  const textParam = message ? `?text=${encodeURIComponent(message)}` : "";
+  return `https://wa.me/${cleanPhone || WHATSAPP_NUMBER}${textParam}`;
 }
 
 /* =========================================================================
@@ -860,9 +906,9 @@ function TherapistsSection({
     <section>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
         <SectionHeader
-          eyebrow="Corpo clínico"
-          title="Nossos terapeutas"
-          subtitle="Profissionais dedicados a acompanhar sua jornada de cuidado e autoconhecimento."
+          eyebrow="Voluntariado"
+          title="Nossos voluntários"
+          subtitle="Terapeutas voluntários dedicados a acompanhar sua jornada de cuidado e autoconhecimento."
           noMarginBottom
         />
         <span className="text-xs font-semibold px-3 py-1.5 rounded-full self-start sm:self-auto" style={{ background: T.primarySoft, color: T.dark }}>
@@ -1061,14 +1107,16 @@ function BookingWizard({
     const dateFmt = date
       ? new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
       : "";
+    const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
     return (
-      `Olá! Gostaria de agendar uma sessão no CTV 🌿\n\n` +
-      `🌱 Terapia: ${selectedTherapy?.name}\n` +
-      `🧘 Terapeuta: ${selectedTherapist?.name}\n` +
-      `📅 Data: ${dateFmt} às ${time}\n` +
-      `📍 Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
-      `Meu nome: ${clientName}\n` +
-      `Meu WhatsApp: ${clientPhone}`
+      `Olá! Gostaria de agendar uma sessão no CTV\n\n` +
+      `Terapia: ${selectedTherapy?.name || ""}\n` +
+      `Terapeuta: ${selectedTherapist?.name || ""}\n` +
+      `Data: ${dateFmt} às ${time}\n` +
+      `Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
+      `Meu nome: ${clientName.trim()}\n` +
+      `Meu WhatsApp: ${phoneFormatted}\n\n` +
+      `Aguardo seu contato!`
     );
   };
 
@@ -1086,9 +1134,9 @@ function BookingWizard({
       time,
       modality,
       clientName: clientName.trim(),
-      clientPhone: clientPhone.trim(),
+      clientPhone: maskPhone(clientPhone) || clientPhone.trim(),
     });
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage())}`;
+    const url = getWhatsAppUrl(WHATSAPP_NUMBER, buildMessage());
     window.open(url, "_blank");
     setSent(true);
   };
@@ -1132,8 +1180,8 @@ function BookingWizard({
     <section>
       <SectionHeader
         eyebrow="Agendamento rápido"
-        title="Marque sua sessão"
-        subtitle="Três passos simples e enviamos o resumo direto para o nosso WhatsApp."
+        title="Solicite sua sessão"
+        subtitle="Em três passos simples, enviamos o resumo direto para o nosso WhatsApp e, em breve, entraremos em contato."
       />
 
       {/* stepper */}
@@ -1367,9 +1415,10 @@ function BookingWizard({
               <label className="block">
                 <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Seu WhatsApp</span>
                 <input
+                  type="tel"
                   value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  placeholder="(35) 9 9999-9999"
+                  onChange={(e) => setClientPhone(maskPhone(e.target.value))}
+                  placeholder="(84) 99999-9999"
                   className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
                   style={{ borderColor: T.border, color: T.text }}
                 />
@@ -1431,8 +1480,8 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="max-w-sm mx-auto py-16 text-center">
-      <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center p-2 border bg-white shadow-sm" style={{ borderColor: T.border }}>
-        <CTVLogo size={64} />
+      <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+        <CTVLogo size={72} />
       </div>
       <h3 className="text-lg font-semibold mb-1" style={{ color: T.dark }}>Acesso administrativo</h3>
       <p className="text-sm mb-6" style={{ color: T.textSoft }}>Digite a senha para gerenciar o portal.</p>
@@ -1497,7 +1546,7 @@ function AdminPanel({
   const tabs: { id: AdminTab; label: string; icon: React.ElementType }[] = [
     { id: "agendamentos", label: "Agendamentos", icon: ClipboardList },
     { id: "terapias", label: "Terapias", icon: Sparkles },
-    { id: "terapeutas", label: "Terapeutas", icon: Stethoscope },
+    { id: "terapeutas", label: "Terapeutas", icon: Users },
     { id: "sac", label: "SAC", icon: MessageCircle },
     { id: "backup", label: "Backup", icon: Database },
   ];
@@ -1591,7 +1640,22 @@ function AdminAppointments({
       {sorted.map((a) => {
         const therapy = therapies.find((t) => t.id === a.therapyId);
         const therapist = therapists.find((p) => p.id === a.therapistId);
-        const waMsg = `Olá ${a.clientName.split(" ")[0]}! Aqui é do CTV, sobre seu agendamento de ${therapy?.name} em ${new Date(a.date + "T00:00:00").toLocaleDateString("pt-BR")} às ${a.time}.`;
+        const clientFirstName = a.clientName.trim().split(" ")[0];
+        const dateObj = a.date ? new Date(a.date + "T00:00:00") : null;
+        const weekdayAbbr = dateObj
+          ? dateObj.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")
+          : "";
+        const capitalizedWeekday = weekdayAbbr ? weekdayAbbr.charAt(0).toUpperCase() + weekdayAbbr.slice(1) : "";
+        const formattedDateStr = dateObj ? dateObj.toLocaleDateString("pt-BR") : a.date;
+        const dateDisplay = capitalizedWeekday ? `${capitalizedWeekday} ${formattedDateStr}` : formattedDateStr;
+
+        const waMsg =
+          `Olá ${clientFirstName}! Aqui é a Sheyla do CTV, sobre sua solicitação para agendamento:\n\n` +
+          `*${therapy?.name || "Terapia"}*\n` +
+          `${dateDisplay}\n` +
+          `às ${a.time}\n\n` +
+          `Posso confirmar agora?\n` +
+          `Se precisa de mais alguma informação, pode enviar um áudio que respondo o mais breve possível.`;
         return (
           <div key={a.id} className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center gap-4 justify-between" style={{ borderColor: T.border, background: T.card }}>
             <div className="flex-1 min-w-0">
@@ -1602,6 +1666,9 @@ function AdminAppointments({
               <p className="text-sm" style={{ color: T.text }}>{therapy?.name} · {therapist?.name}</p>
               <p className="text-xs mt-1" style={{ color: T.textSoft }}>
                 {new Date(a.date + "T00:00:00").toLocaleDateString("pt-BR")} às {a.time} · {a.modality === "presencial" ? "Presencial" : "A Distância"}
+              </p>
+              <p className="text-xs mt-0.5 font-medium" style={{ color: T.dark }}>
+                WhatsApp: {maskPhone(a.clientPhone) || a.clientPhone}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -1616,7 +1683,7 @@ function AdminAppointments({
                 <option value="cancelado">Cancelado</option>
               </select>
               <a
-                href={`https://wa.me/${a.clientPhone}?text=${encodeURIComponent(waMsg)}`}
+                href={getWhatsAppUrl(a.clientPhone, waMsg)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg text-white transition hover:brightness-110"
@@ -1820,7 +1887,7 @@ function TherapyForm({
       </FormField>
       <FormField label="Resumo curto"><Input value={summary} onChange={setSummary} required /></FormField>
       <FormField label="Descrição completa"><Textarea value={description} onChange={setDescription} required /></FormField>
-      <FormField label="Benefícios (separados por vírgula)"><Input value={benefits} onChange={setBenefits} /></FormField>
+      <FormField label="Benefícios"><Input value={benefits} onChange={setBenefits} placeholder="Ex: Alívio de tensões, clareza mental, vitalidade" /></FormField>
       <div className="grid sm:grid-cols-2 gap-4">
         <FormField label="Duração"><Input value={duration} onChange={setDuration} /></FormField>
         <FormField label="Contribuição consciente"><Input value={contribution} onChange={setContribution} /></FormField>
@@ -2479,11 +2546,12 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     </label>
   );
 }
-function Input({ value, onChange, required }: { value: string; onChange: (v: string) => void; required?: boolean }) {
+function Input({ value, onChange, required, placeholder }: { value: string; onChange: (v: string) => void; required?: boolean; placeholder?: string }) {
   return (
     <input
       value={value}
       required={required}
+      placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
       style={{ borderColor: T.border, color: T.text }}
@@ -2559,8 +2627,8 @@ function VibrationalHero({ onStart }: { onStart: () => void }) {
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_1s]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_2s]" style={{ border: `1.5px solid ${T.primary}` }} />
-        <div className="w-28 h-28 rounded-full bg-white/90 shadow-sm flex items-center justify-center p-2 border" style={{ borderColor: T.border }}>
-          <CTVLogo size={84} />
+        <div className="w-28 h-28 flex items-center justify-center">
+          <CTVLogo size={96} />
         </div>
       </div>
       <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: T.primary }}>Centro de Terapias Vibracionais</p>
@@ -2637,7 +2705,7 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
   const items: { id: View; label: string; icon: React.ElementType }[] = [
     { id: "agendar", label: "Agendar", icon: Calendar },
     { id: "terapias", label: "Terapias", icon: LayoutGrid },
-    { id: "terapeutas", label: "Terapeutas", icon: Stethoscope },
+    { id: "terapeutas", label: "Terapeutas", icon: Users },
     { id: "sac", label: "SAC", icon: MessageCircle },
   ];
 
@@ -2647,11 +2715,8 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
         <button onClick={() => setView("inicio")} className="flex items-center gap-2.5 group text-left">
           <CTVLogo size={36} className="transition group-hover:scale-105" />
           <div>
-            <span className="font-bold text-sm sm:text-base leading-tight block" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
-              Portal CTV
-            </span>
-            <span className="text-[10px] uppercase tracking-wider block font-medium -mt-0.5" style={{ color: T.textSoft }}>
-              Terapias Vibracionais
+            <span className="font-bold text-xs sm:text-sm tracking-wide block uppercase" style={{ color: T.dark, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+              CTV - CENTRO DE TERAPIAS VIBRACIONAIS
             </span>
           </div>
         </button>
@@ -2861,7 +2926,7 @@ export default function App() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
               {[
                 { icon: Sparkles, label: "Terapias", desc: "Conheça nossas práticas", action: () => setView("terapias") },
-                { icon: Stethoscope, label: "Terapeutas", desc: "Nosso corpo clínico", action: () => setView("terapeutas") },
+                { icon: Users, label: "Terapeutas", desc: "Nossos voluntários", action: () => setView("terapeutas") },
                 { icon: Calendar, label: "Agendar", desc: "Marque em 3 passos", action: () => goBook() },
                 { icon: MessageCircle, label: "SAC", desc: "Perguntas frequentes", action: () => setView("sac") },
               ].map((c, i) => (

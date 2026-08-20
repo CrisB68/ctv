@@ -6,7 +6,6 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
-  getDocFromServer,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
@@ -51,6 +50,12 @@ export interface FirestoreErrorInfo {
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMessage = error instanceof Error ? error.message : String(error);
+  const isOfflineOrTransient =
+    errMessage.includes('unavailable') ||
+    errMessage.includes('offline') ||
+    errMessage.includes('Could not reach') ||
+    errMessage.includes('network');
+
   const errInfo: FirestoreErrorInfo = {
     error: errMessage,
     authInfo: {
@@ -62,29 +67,16 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  
-  // Se for apenas estado offline temporário, registra apenas como informação
-  if (errMessage.includes('unavailable') || errMessage.includes('offline') || errMessage.includes('Could not reach')) {
-    console.info('Firestore em cache/offline:', path);
-  } else {
-    console.warn('Firestore sync notice:', JSON.stringify(errInfo));
+
+  // Suprime logs verbosos quando estiver temporariamente offline ou reconectando
+  if (isOfflineOrTransient) {
+    // Modo offline/cache local automático do Firestore
+    return errInfo;
   }
+
+  console.warn('Firestore sync notice:', JSON.stringify(errInfo));
   return errInfo;
 }
-
-// Test connection on boot
-export async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'therapies', 'test_connection'));
-  } catch (error: any) {
-    const msg = error?.message || String(error);
-    if (msg.includes('unavailable') || msg.includes('offline') || msg.includes('Could not reach')) {
-      console.info('Firestore: Operando em modo offline / cache local enquanto sincroniza com a nuvem.');
-    }
-  }
-}
-
-testConnection();
 
 /**
  * Remove recursivamente todas as propriedades `undefined` de um objeto,
