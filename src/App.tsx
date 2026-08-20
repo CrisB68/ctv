@@ -4,7 +4,7 @@ import {
   Search, X, ChevronRight, ChevronLeft, Check, Volume2, VolumeX, Ruler,
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
   Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
-  Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
+  Plus, MessageCircle, Phone, User, ArrowRight, ArrowDown, Loader2, ShieldCheck,
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw,
   GripVertical, ChevronUp, ChevronDown, Zap, AlertCircle, Info
 } from "lucide-react";
@@ -152,6 +152,7 @@ interface Therapist {
   id: string;
   name: string;
   photoUrl?: string;
+  modality?: Modality; // "presencial" | "distancia" | "ambas"
   specialties: string[]; // therapy ids
   availability: Record<string, string[]>; // dia da semana -> lista de horários (ex.: "Segunda": ["09:00","10:00"])
   unavailableDates?: string[]; // datas específicas (YYYY-MM-DD) em que o terapeuta, excepcionalmente, não atende
@@ -257,6 +258,7 @@ function normalizeTherapist(raw: any): Therapist {
     id: raw?.id ?? genId("pr"),
     name: raw?.name ?? "",
     photoUrl: typeof raw?.photoUrl === "string" ? raw.photoUrl : "",
+    modality: raw?.modality === "presencial" || raw?.modality === "distancia" ? raw.modality : "ambas",
     specialties: Array.isArray(raw?.specialties) ? raw.specialties : [],
     availability:
       raw?.availability && typeof raw.availability === "object" && !Array.isArray(raw.availability)
@@ -266,6 +268,24 @@ function normalizeTherapist(raw: any): Therapist {
     hidden: !!raw?.hidden,
     isSeed: raw?.isSeed,
   };
+}
+
+/**
+ * Calcula a interseção das modalidades suportadas pela terapia e pelo terapeuta.
+ * Garante que a opção seja consistente no agendamento.
+ */
+function getAllowedModalities(
+  therapyModality: Modality = "ambas",
+  therapistModality: Modality = "ambas"
+): ("presencial" | "distancia")[] {
+  const therapyOpts: ("presencial" | "distancia")[] =
+    therapyModality === "ambas" ? ["presencial", "distancia"] : [therapyModality];
+  const therapistOpts: ("presencial" | "distancia")[] =
+    therapistModality === "ambas" ? ["presencial", "distancia"] : [therapistModality];
+
+  const common = therapyOpts.filter((m) => therapistOpts.includes(m));
+  if (common.length > 0) return common;
+  return therapyOpts;
 }
 
 /** Corrige registros de terapia salvos por versões antigas, garantindo campos mínimos válidos. */
@@ -1315,6 +1335,16 @@ function QuickTherapistBookingModal({
 
   const selectedTherapy = therapies.find((t) => t.id === selectedTherapyId);
 
+  const allowedModalities = useMemo(() => {
+    return getAllowedModalities(selectedTherapy?.modality, therapist.modality);
+  }, [selectedTherapy?.modality, therapist.modality]);
+
+  useEffect(() => {
+    if (!allowedModalities.includes(modality)) {
+      setModality(allowedModalities[0] || "presencial");
+    }
+  }, [allowedModalities, modality]);
+
   const canSubmit = !!(
     selectedTherapyId &&
     selectedSlot &&
@@ -1514,24 +1544,45 @@ function QuickTherapistBookingModal({
               <label className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: T.textSoft }}>
                 3. Modalidade
               </label>
-              <div className="flex gap-2">
-                {(["presencial", "distancia"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setModality(m)}
-                    className="flex-1 py-2 rounded-xl border-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
-                    style={{
-                      borderColor: modality === m ? T.primary : T.border,
-                      background: modality === m ? T.primarySoft : "transparent",
-                      color: T.dark,
-                    }}
-                  >
-                    {m === "presencial" ? <MapPin className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
-                    {m === "presencial" ? "Presencial" : "A Distância"}
-                  </button>
-                ))}
-              </div>
+              {allowedModalities.length === 1 ? (
+                <div
+                  className="p-3 rounded-xl border flex items-center gap-3"
+                  style={{ borderColor: T.border, background: T.primarySoft }}
+                >
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white" style={{ color: T.primary }}>
+                    {allowedModalities[0] === "presencial" ? <MapPin className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold" style={{ color: T.dark }}>
+                      Atendimento {allowedModalities[0] === "presencial" ? "Presencial" : "A Distância"}
+                    </p>
+                    <p className="text-[11px]" style={{ color: T.textSoft }}>
+                      {selectedTherapy?.modality !== "ambas"
+                        ? "Modalidade exclusiva desta técnica terapêutica."
+                        : "Modalidade de atendimento deste terapeuta voluntário."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {(["presencial", "distancia"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setModality(m)}
+                      className="flex-1 py-2 rounded-xl border-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                      style={{
+                        borderColor: modality === m ? T.primary : T.border,
+                        background: modality === m ? T.primarySoft : "transparent",
+                        color: T.dark,
+                      }}
+                    >
+                      {m === "presencial" ? <MapPin className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                      {m === "presencial" ? "Presencial" : "A Distância"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 4. Dados do paciente */}
@@ -1624,6 +1675,16 @@ function QuickTherapyBookingModal({
   const [sent, setSent] = useState(false);
 
   const selectedTherapist = therapists.find((p) => p.id === selectedTherapistId);
+
+  const allowedModalities = useMemo(() => {
+    return getAllowedModalities(therapy.modality, selectedTherapist?.modality);
+  }, [therapy.modality, selectedTherapist?.modality]);
+
+  useEffect(() => {
+    if (!allowedModalities.includes(modality)) {
+      setModality(allowedModalities[0] || "presencial");
+    }
+  }, [allowedModalities, modality]);
 
   // Calcula os horários dos próximos 30 dias para o terapeuta selecionado
   const availableSlots = useMemo(() => {
@@ -1849,24 +1910,47 @@ function QuickTherapyBookingModal({
               <label className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: T.textSoft }}>
                 3. Modalidade
               </label>
-              <div className="flex gap-2">
-                {(["presencial", "distancia"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setModality(m)}
-                    className="flex-1 py-2 rounded-xl border-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
-                    style={{
-                      borderColor: modality === m ? T.primary : T.border,
-                      background: modality === m ? T.primarySoft : "transparent",
-                      color: T.dark,
-                    }}
-                  >
-                    {m === "presencial" ? <MapPin className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
-                    {m === "presencial" ? "Presencial" : "A Distância"}
-                  </button>
-                ))}
-              </div>
+              {allowedModalities.length === 1 ? (
+                <div
+                  className="p-3.5 rounded-xl border flex items-center gap-3"
+                  style={{ borderColor: T.border, background: T.primarySoft }}
+                >
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white shadow-xs" style={{ color: T.primary }}>
+                    {allowedModalities[0] === "presencial" ? <MapPin className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold" style={{ color: T.dark }}>
+                      Atendimento {allowedModalities[0] === "presencial" ? "Presencial" : "A Distância"}
+                    </p>
+                    <p className="text-[11px]" style={{ color: T.textSoft }}>
+                      {therapy.modality !== "ambas"
+                        ? "Modalidade exclusiva desta técnica terapêutica."
+                        : selectedTherapist?.modality !== "ambas"
+                        ? `Modalidade de atendimento de ${selectedTherapist?.name?.split(" ")[0] || "terapeuta"}.`
+                        : "Modalidade definida para a sessão."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {(["presencial", "distancia"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setModality(m)}
+                      className="flex-1 py-2 rounded-xl border-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                      style={{
+                        borderColor: modality === m ? T.primary : T.border,
+                        background: modality === m ? T.primarySoft : "transparent",
+                        color: T.dark,
+                      }}
+                    >
+                      {m === "presencial" ? <MapPin className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                      {m === "presencial" ? "Presencial" : "A Distância"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 4. Dados do paciente */}
@@ -2027,6 +2111,17 @@ function TherapistsSection({
                       <p className="text-xs" style={{ color: T.textSoft }}>
                         {specialtyNames.length > 0 ? specialtyNames.join(" · ") : "Terapias Integrativas"}
                       </p>
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ background: "rgba(0,0,0,0.04)", color: T.textSoft }}>
+                          {p.modality === "presencial" ? (
+                            <><MapPin className="w-3 h-3 text-emerald-700" /> Presencial</>
+                          ) : p.modality === "distancia" ? (
+                            <><Wifi className="w-3 h-3 text-emerald-700" /> A Distância</>
+                          ) : (
+                            <><Sparkles className="w-3 h-3 text-emerald-700" /> Presencial & A Distância</>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mb-4">
@@ -2068,501 +2163,6 @@ function TherapistsSection({
           }}
         />
       )}
-    </section>
-  );
-}
-
-/* =========================================================================
-   AGENDAMENTO — WIZARD DE 3 PASSOS
-   ========================================================================= */
-function BookingWizard({
-  therapies,
-  therapists,
-  appointments,
-  presetTherapyId,
-  presetTherapistId,
-  onComplete,
-}: {
-  therapies: Therapy[];
-  therapists: Therapist[];
-  appointments: Appointment[];
-  presetTherapyId?: string | null;
-  presetTherapistId?: string | null;
-  onComplete: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;
-}) {
-  const [step, setStep] = useState(1);
-  const [therapyId, setTherapyId] = useState<string | null>(presetTherapyId ?? null);
-  const [therapistId, setTherapistId] = useState<string | null>(presetTherapistId ?? null);
-  const [therapySearch, setTherapySearch] = useState("");
-  const [therapistSearch, setTherapistSearch] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [modality, setModality] = useState<"presencial" | "distancia">("presencial");
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [sent, setSent] = useState(false);
-  const [slotTakenWarning, setSlotTakenWarning] = useState(false);
-
-  useEffect(() => {
-    if (presetTherapyId && presetTherapistId) {
-      setTherapyId(presetTherapyId);
-      setTherapistId(presetTherapistId);
-      setStep(3);
-    } else if (presetTherapyId) {
-      setTherapyId(presetTherapyId);
-      setStep(2);
-    } else if (presetTherapistId) {
-      setTherapistId(presetTherapistId);
-      const th = therapists.find((p) => p.id === presetTherapistId);
-      if (th && th.specialties.length === 1) {
-        setTherapyId(th.specialties[0]);
-      }
-      setStep(1);
-    }
-  }, [presetTherapyId, presetTherapistId, therapists]);
-
-  const visibleTherapies = useMemo(() => {
-    const list = sortByName(therapies.filter((t) => !t.hidden));
-    // Se um terapeuta estiver selecionado e ele tiver especialidades cadastradas,
-    // restringe as terapias apenas às especialidades que esse terapeuta atende
-    if (therapistId) {
-      const th = therapists.find((p) => p.id === therapistId);
-      if (th && th.specialties.length > 0) {
-        return list.filter((t) => th.specialties.includes(t.id));
-      }
-    }
-    return list;
-  }, [therapies, therapistId, therapists]);
-
-  // Se a terapia atualmente selecionada não estiver na lista de visíveis do terapeuta, desfaz a seleção
-  useEffect(() => {
-    if (therapyId && therapistId) {
-      const th = therapists.find((p) => p.id === therapistId);
-      if (th && th.specialties.length > 0 && !th.specialties.includes(therapyId)) {
-        setTherapyId(null);
-      }
-    }
-  }, [therapyId, therapistId, therapists]);
-
-  const filteredTherapies = useMemo(() => {
-    const q = therapySearch.trim().toLowerCase();
-    if (!q) return visibleTherapies;
-    return visibleTherapies.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.summary.toLowerCase().includes(q)
-    );
-  }, [visibleTherapies, therapySearch]);
-
-  const eligibleTherapists = sortByName(
-    therapists.filter((p) => !p.hidden && (!therapyId || p.specialties.length === 0 || p.specialties.includes(therapyId)))
-  );
-  const filteredTherapists = useMemo(() => {
-    const q = therapistSearch.trim().toLowerCase();
-    if (!q) return eligibleTherapists;
-    return eligibleTherapists.filter((p) => p.name.toLowerCase().includes(q));
-  }, [eligibleTherapists, therapistSearch]);
-
-  const selectedTherapy = therapies.find((t) => t.id === therapyId);
-  const selectedTherapist = therapists.find((p) => p.id === therapistId);
-
-  const weekday = weekdayNameFromDate(date);
-  const takenTimes = useMemo(
-    () =>
-      appointments
-        .filter(
-          (a) =>
-            a.therapistId === therapistId &&
-            a.date === date &&
-            (a.status === "pendente" || a.status === "confirmado")
-        )
-        .map((a) => a.time),
-    [appointments, therapistId, date]
-  );
-  const isBlockedDate = !!(selectedTherapist && date && (selectedTherapist.unavailableDates ?? []).includes(date));
-  const availableTimes = useMemo(() => {
-    if (!selectedTherapist || !weekday) return [];
-    if ((selectedTherapist.unavailableDates ?? []).includes(date)) return [];
-    const dayTimes = selectedTherapist.availability[weekday] ?? [];
-    return dayTimes.filter((t) => !takenTimes.includes(t)).sort();
-  }, [selectedTherapist, weekday, takenTimes, date]);
-
-  useEffect(() => {
-    setTime("");
-  }, [date, therapistId]);
-
-  const canGoStep2 = !!therapyId;
-  const canGoStep3 = !!therapyId && !!therapistId;
-  const canFinish = !!(therapyId && therapistId && date && time && clientName.trim() && clientPhone.trim());
-
-  const steps = [
-    { n: 1, label: "Terapia" },
-    { n: 2, label: "Terapeuta" },
-    { n: 3, label: "Data & Modalidade" },
-  ];
-
-  const buildMessage = () => {
-    const dateFmt = date
-      ? new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
-      : "";
-    const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
-    return (
-      `Olá! Gostaria de agendar uma sessão no CTV\n\n` +
-      `Terapia: ${selectedTherapy?.name || ""}\n` +
-      `Terapeuta: ${selectedTherapist?.name || ""}\n` +
-      `Data: ${dateFmt} às ${time}\n` +
-      `Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
-      `Meu nome: ${clientName.trim()}\n` +
-      `Meu WhatsApp: ${phoneFormatted}\n\n` +
-      `Aguardo seu contato!`
-    );
-  };
-
-  const handleConfirm = () => {
-    if (!therapyId || !therapistId) return;
-    if (!availableTimes.includes(time)) {
-      setSlotTakenWarning(true);
-      setTime("");
-      return;
-    }
-    onComplete({
-      therapyId,
-      therapistId,
-      date,
-      time,
-      modality,
-      clientName: clientName.trim(),
-      clientPhone: maskPhone(clientPhone) || clientPhone.trim(),
-    });
-    const url = getWhatsAppUrl(WHATSAPP_NUMBER, buildMessage());
-    window.open(url, "_blank");
-    setSent(true);
-  };
-
-  if (sent) {
-    return (
-      <div className="text-center py-16 max-w-md mx-auto">
-        <div className="w-16 h-16 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ background: T.primarySoft }}>
-          <Check className="w-8 h-8" style={{ color: T.primary }} />
-        </div>
-        <h3 className="text-xl font-semibold mb-2" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
-          Solicitação enviada!
-        </h3>
-        <p className="text-sm mb-6" style={{ color: T.textSoft }}>
-          Abrimos o WhatsApp do CTV com sua mensagem pronta. Assim que confirmarmos, seu horário passa para
-          "Confirmado".
-        </p>
-        <button
-          onClick={() => {
-            setSent(false);
-            setStep(1);
-            setTherapyId(null);
-            setTherapistId(null);
-            setTherapySearch("");
-            setTherapistSearch("");
-            setDate("");
-            setTime("");
-            setClientName("");
-            setClientPhone("");
-          }}
-          className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
-          style={{ background: T.primary }}
-        >
-          Fazer novo agendamento
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <section>
-      <SectionHeader
-        eyebrow="Agendamento rápido"
-        title="Solicite sua sessão"
-        subtitle="Em três passos simples, enviamos o resumo direto para o nosso WhatsApp e, em breve, entraremos em contato."
-      />
-
-      {/* stepper */}
-      <div className="flex items-center gap-2 mb-8">
-        {steps.map((s, i) => (
-          <React.Fragment key={s.n}>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition"
-                style={{
-                  background: step >= s.n ? T.primary : T.primarySoft,
-                  color: step >= s.n ? "#fff" : T.textSoft,
-                }}
-              >
-                {step > s.n ? <Check className="w-4 h-4" /> : s.n}
-              </div>
-              <span className="text-sm font-medium hidden sm:inline" style={{ color: step >= s.n ? T.dark : T.textSoft }}>
-                {s.label}
-              </span>
-            </div>
-            {i < steps.length - 1 && <div className="flex-1 h-px" style={{ background: T.border }} />}
-          </React.Fragment>
-        ))}
-      </div>
-
-      <div className="rounded-2xl border p-6" style={{ borderColor: T.border, background: T.card }}>
-        {step === 1 && (
-          <div className="animate-[fadeIn_.2s_ease]">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <p className="text-sm font-medium" style={{ color: T.text }}>Escolha a terapia</p>
-              <span className="text-xs" style={{ color: T.textSoft }}>{visibleTherapies.length} disponíveis</span>
-            </div>
-
-            {visibleTherapies.length === 0 ? (
-              <EmptyState text="Nenhuma terapia cadastrada ainda. Acesse o Painel Admin para cadastrar suas terapias." />
-            ) : (
-              <>
-                <div className="relative mb-4">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
-                  <input
-                    value={therapySearch}
-                    onChange={(e) => setTherapySearch(e.target.value)}
-                    placeholder="Filtrar por nome ou tema…"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                    style={{ borderColor: T.border, color: T.text }}
-                  />
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {filteredTherapies.map((t) => {
-                    const IconEl = ICONS[t.icon] ?? Sparkles;
-                    const selected = therapyId === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setTherapyId(t.id)}
-                        className="text-left rounded-xl p-4 border-2 transition flex items-start gap-3"
-                        style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
-                      >
-                        <IconEl className="w-5 h-5 mt-0.5 shrink-0" style={{ color: T.primary }} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold truncate" style={{ color: T.dark }}>{t.name}</p>
-                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: T.textSoft }}>{t.summary || t.duration}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {filteredTherapies.length === 0 && (
-                    <div className="sm:col-span-2 py-6 text-center text-xs" style={{ color: T.textSoft }}>
-                      Nenhuma terapia encontrada com esse termo.
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="animate-[fadeIn_.2s_ease]">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <p className="text-sm font-medium" style={{ color: T.text }}>Escolha o terapeuta</p>
-              <span className="text-xs" style={{ color: T.textSoft }}>{eligibleTherapists.length} disponíveis</span>
-            </div>
-
-            {eligibleTherapists.length === 0 ? (
-              <EmptyState text={therapists.length === 0 ? "Nenhum terapeuta cadastrado ainda." : "Nenhum terapeuta vinculado a esta terapia no momento."} />
-            ) : (
-              <>
-                <div className="relative mb-4">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
-                  <input
-                    value={therapistSearch}
-                    onChange={(e) => setTherapistSearch(e.target.value)}
-                    placeholder="Filtrar terapeutas por nome…"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                    style={{ borderColor: T.border, color: T.text }}
-                  />
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                  {filteredTherapists.map((p) => {
-                    const selected = therapistId === p.id;
-                    const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setTherapistId(p.id)}
-                        className="text-left rounded-xl p-4 border-2 transition flex items-center gap-3"
-                        style={{ borderColor: selected ? T.primary : T.border, background: selected ? T.primarySoft : "transparent" }}
-                      >
-                        <TherapistAvatar therapist={p} size="w-10 h-10" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold truncate" style={{ color: T.dark }}>{p.name}</p>
-                          <p className="text-xs mt-0.5 truncate" style={{ color: T.textSoft }}>
-                            {activeDays.length > 0 ? activeDays.join(", ") : "Consulte horários"}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {filteredTherapists.length === 0 && (
-                    <div className="sm:col-span-2 py-6 text-center text-xs" style={{ color: T.textSoft }}>
-                      Nenhum terapeuta encontrado com esse termo.
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="animate-[fadeIn_.2s_ease] space-y-5">
-            <label className="block">
-              <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Data</span>
-              <input
-                type="date"
-                value={date}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setSlotTakenWarning(false);
-                }}
-                className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                style={{ borderColor: T.border, color: T.text }}
-              />
-            </label>
-
-            <div>
-              <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Horário</span>
-              {!date && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  Escolha uma data para ver os horários disponíveis.
-                </p>
-              )}
-              {date && !weekday && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  A clínica não atende aos domingos. Escolha outra data.
-                </p>
-              )}
-              {date && weekday && isBlockedDate && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  {selectedTherapist?.name.split(" ")[0]} não atende nesta data específica (dia bloqueado). Escolha outra data.
-                </p>
-              )}
-              {date && weekday && !isBlockedDate && availableTimes.length === 0 && (
-                <p className="text-sm rounded-xl p-3" style={{ background: T.primarySoft, color: T.textSoft }}>
-                  {selectedTherapist?.name.split(" ")[0]} não tem horários livres em {weekday.toLowerCase()}. Tente outra data.
-                </p>
-              )}
-              {date && weekday && availableTimes.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {availableTimes.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => {
-                        setTime(t);
-                        setSlotTakenWarning(false);
-                      }}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition"
-                      style={{
-                        borderColor: time === t ? T.primary : T.border,
-                        background: time === t ? T.primarySoft : "transparent",
-                        color: T.text,
-                      }}
-                    >
-                      <Clock className="w-3.5 h-3.5" style={{ color: T.primary }} />
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {slotTakenWarning && (
-                <p className="text-sm mt-2" style={{ color: T.red }}>
-                  Esse horário acabou de ser reservado por outra pessoa. Escolha outro, por favor.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Modalidade</span>
-              <div className="flex gap-2">
-                {(["presencial", "distancia"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setModality(m)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-medium transition"
-                    style={{ borderColor: modality === m ? T.primary : T.border, background: modality === m ? T.primarySoft : "transparent", color: T.text }}
-                  >
-                    {m === "presencial" ? <MapPin className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
-                    {m === "presencial" ? "Presencial" : "A Distância"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <label className="block">
-                <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Seu nome</span>
-                <input
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Nome completo"
-                  className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                  style={{ borderColor: T.border, color: T.text }}
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium mb-1.5 block" style={{ color: T.text }}>Seu WhatsApp</span>
-                <input
-                  type="tel"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(maskPhone(e.target.value))}
-                  placeholder="(84) 99999-9999"
-                  className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                  style={{ borderColor: T.border, color: T.text }}
-                />
-              </label>
-            </div>
-
-            {selectedTherapy && selectedTherapist && (
-              <div className="rounded-xl p-4 space-y-1.5" style={{ background: T.primarySoft }}>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: T.textSoft }}>Resumo</p>
-                <p className="text-sm" style={{ color: T.dark }}><strong>Terapia:</strong> {selectedTherapy.name}</p>
-                <p className="text-sm" style={{ color: T.dark }}><strong>Terapeuta:</strong> {selectedTherapist.name}</p>
-                {date && time && <p className="text-sm" style={{ color: T.dark }}><strong>Quando:</strong> {new Date(date + "T00:00:00").toLocaleDateString("pt-BR")} às {time}</p>}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mt-6 pt-5 border-t" style={{ borderColor: T.border }}>
-          <button
-            onClick={() => setStep((s) => Math.max(1, s - 1))}
-            disabled={step === 1}
-            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl transition disabled:opacity-0"
-            style={{ color: T.textSoft }}
-          >
-            <ChevronLeft className="w-4 h-4" /> Voltar
-          </button>
-
-          {step < 3 ? (
-            <button
-              onClick={() => setStep((s) => s + 1)}
-              disabled={(step === 1 && !canGoStep2) || (step === 2 && !canGoStep3)}
-              className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition disabled:opacity-40 hover:brightness-110"
-              style={{ background: T.primary }}
-            >
-              Continuar <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={handleConfirm}
-              disabled={!canFinish}
-              className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition disabled:opacity-40 hover:brightness-110"
-              style={{ background: T.primary }}
-            >
-              <MessageCircle className="w-4 h-4" /> Confirmar via WhatsApp
-            </button>
-          )}
-        </div>
-      </div>
     </section>
   );
 }
@@ -3156,7 +2756,17 @@ function AdminTherapists({
                 <TherapistAvatar therapist={p} size="w-10 h-10" />
                 <div className="min-w-0">
                   <p className="font-medium truncate" style={{ color: T.dark }}>{p.name}</p>
-                  <p className="text-xs truncate" style={{ color: T.textSoft }}>{activeDays.join(", ") || "Sem horários cadastrados"}</p>
+                  <p className="text-xs truncate flex items-center gap-1.5" style={{ color: T.textSoft }}>
+                    <span>{activeDays.join(", ") || "Sem horários cadastrados"}</span>
+                    <span>•</span>
+                    <span className="font-semibold text-emerald-800">
+                      {p.modality === "presencial"
+                        ? "Apenas Presencial"
+                        : p.modality === "distancia"
+                        ? "Apenas A Distância"
+                        : "Presencial & Distância"}
+                    </span>
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -3346,6 +2956,7 @@ function TherapistForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl ?? "");
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [modality, setModality] = useState<Modality>(initial?.modality ?? "ambas");
   const [specialties, setSpecialties] = useState<string[]>(initial?.specialties ?? []);
   const [availability, setAvailability] = useState<Record<string, string[]>>(initial?.availability ?? {});
   const [unavailableDates, setUnavailableDates] = useState<string[]>(initial?.unavailableDates ?? []);
@@ -3376,6 +2987,7 @@ function TherapistForm({
           id: initial?.id ?? genId("pr"),
           name,
           photoUrl,
+          modality,
           specialties,
           availability,
           unavailableDates,
@@ -3429,6 +3041,18 @@ function TherapistForm({
             <p className="text-xs mt-1.5" style={{ color: T.textSoft }}>Escolha uma foto do seu computador (JPG ou PNG).</p>
           </div>
         </div>
+      </FormField>
+      <FormField label="Modalidade de atendimento deste terapeuta">
+        <select
+          value={modality}
+          onChange={(e) => setModality(e.target.value as Modality)}
+          className="w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none bg-white"
+          style={{ borderColor: T.border, color: T.text }}
+        >
+          <option value="ambas">Ambas (Presencial e A Distância)</option>
+          <option value="presencial">Apenas Presencial</option>
+          <option value="distancia">Apenas A Distância</option>
+        </select>
       </FormField>
       <FormField label="Especialidades">
         <div className="flex flex-wrap gap-2">
@@ -3831,32 +3455,27 @@ function EmptyState({ text }: { text: string }) {
 /* =========================================================================
    HERO — ondas vibracionais (elemento de assinatura visual)
    ========================================================================= */
-function VibrationalHero({ onStart }: { onStart: () => void }) {
+function VibrationalHero() {
   return (
-    <div className="relative overflow-hidden rounded-3xl mb-10 px-6 py-12 sm:px-12 sm:py-16 text-center" style={{ background: `linear-gradient(180deg, ${T.primarySoft}, ${T.bg})` }}>
-      <div className="relative w-36 h-36 mx-auto mb-6 flex items-center justify-center">
+    <div className="relative overflow-hidden rounded-3xl mb-8 px-6 py-10 sm:px-12 sm:py-14 text-center" style={{ background: `linear-gradient(180deg, ${T.primarySoft}, ${T.bg})` }}>
+      <div className="relative w-32 h-32 mx-auto mb-5 flex items-center justify-center">
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_1s]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_2s]" style={{ border: `1.5px solid ${T.primary}` }} />
-        <div className="w-24 h-24 flex items-center justify-center">
-          <Logo size={88} rounded="rounded-full" variant="soft" />
+        <div className="w-20 h-20 flex items-center justify-center">
+          <Logo size={80} rounded="rounded-full" variant="soft" />
         </div>
       </div>
       <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: T.primary }}>Centro de Terapias Vibracionais</p>
-      <h1 className="text-3xl sm:text-4xl font-semibold mb-3 max-w-xl mx-auto leading-tight" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
+      <h1 className="text-2xl sm:text-4xl font-semibold mb-3 max-w-xl mx-auto leading-tight" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
         Um espaço para reencontrar seu equilíbrio
       </h1>
-      <p className="text-sm sm:text-base max-w-md mx-auto mb-7" style={{ color: T.textSoft }}>
-        Terapias vibracionais conduzidas com presença e cuidado, presencial ou a distância.
+      <p className="text-sm sm:text-base max-w-md mx-auto mb-6" style={{ color: T.textSoft }}>
+        Terapias vibracionais conduzidas com presença, acolhimento e escuta atenta, presencial ou a distância.
       </p>
-      <div className="flex items-center justify-center gap-3 flex-wrap">
-        <button
-          onClick={onStart}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition hover:brightness-110 hover:-translate-y-0.5 shadow-sm"
-          style={{ background: T.primary }}
-        >
-          <Sparkles className="w-4 h-4" /> Conhecer Terapias & Agendar
-        </button>
+      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border shadow-xs" style={{ background: "rgba(255, 255, 255, 0.85)", borderColor: "#8FA874", color: T.dark }}>
+        <ArrowDown className="w-3.5 h-3.5 text-emerald-800 animate-bounce" />
+        <span>Selecione uma das opções abaixo para iniciar sua jornada:</span>
       </div>
     </div>
   );
@@ -4090,17 +3709,59 @@ export default function App() {
       <main ref={mainRef} className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {view === "inicio" && (
           <>
-            <VibrationalHero onStart={() => setView("terapias")} />
+            <VibrationalHero />
             <div className="grid sm:grid-cols-3 gap-4 mb-10">
               {[
-                { icon: Sparkles, label: "Terapias", desc: "Catálogo completo com agendamento rápido", action: () => setView("terapias") },
-                { icon: Users, label: "Terapeutas", desc: "Nossos voluntários e horários disponíveis", action: () => setView("terapeutas") },
-                { icon: MessageCircle, label: "SAC & Dúvidas", desc: "Perguntas frequentes e suporte", action: () => setView("sac") },
+                {
+                  icon: LayoutGrid,
+                  badge: "Catálogo & Agendamento",
+                  label: "Terapias",
+                  desc: "Conheça nossas práticas vibracionais e solicite sua sessão.",
+                  action: () => setView("terapias"),
+                },
+                {
+                  icon: Users,
+                  badge: "Nossa Equipe",
+                  label: "Nossos Voluntários",
+                  desc: "Consulte o perfil dos terapeutas e horários disponíveis.",
+                  action: () => setView("terapeutas"),
+                },
+                {
+                  icon: MessageCircle,
+                  badge: "Atendimento & Dúvidas",
+                  label: "SAC",
+                  desc: "Perguntas frequentes e canal de suporte via WhatsApp.",
+                  action: () => setView("sac"),
+                },
               ].map((c, i) => (
-                <button key={i} onClick={c.action} className="text-left rounded-2xl p-5 border transition hover:-translate-y-0.5 hover:shadow-md" style={{ borderColor: T.border, background: T.card }}>
-                  <c.icon className="w-5 h-5 mb-3" style={{ color: T.primary }} />
-                  <p className="font-semibold text-sm mb-1" style={{ color: T.dark }}>{c.label}</p>
-                  <p className="text-xs" style={{ color: T.textSoft }}>{c.desc}</p>
+                <button
+                  key={i}
+                  onClick={c.action}
+                  className="group text-left rounded-2xl p-5 border-2 transition hover:-translate-y-1 hover:shadow-lg flex flex-col justify-between"
+                  style={{
+                    borderColor: "#8BA470",
+                    background: T.card,
+                  }}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-110 shadow-xs"
+                        style={{ background: T.primarySoft, color: T.primary }}
+                      >
+                        <c.icon className="w-5 h-5" />
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: T.primarySoft, color: T.dark }}>
+                        {c.badge}
+                      </span>
+                    </div>
+                    <p className="font-bold text-base mb-1.5" style={{ color: T.dark }}>{c.label}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: T.textSoft }}>{c.desc}</p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs font-semibold" style={{ borderColor: "#D5E3C5", color: T.primary }}>
+                    <span>Acessar {c.label.toLowerCase()}</span>
+                    <ArrowRight className="w-4 h-4 transition group-hover:translate-x-1" />
+                  </div>
                 </button>
               ))}
             </div>
