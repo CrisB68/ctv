@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <path id="ctv-arc-top" d="M 65,250 A 185,185 0 0,1 435,250" fill="none" />
+    <path id="ctv-arc-bot" d="M 95,250 A 155,155 0 0,0 405,250" fill="none" />
+  </defs>
+
+  <!-- Texto Circular Superior -->
+  <text fill="#2C521B" font-size="21" font-weight="800" letter-spacing="4.2" font-family="system-ui, -apple-system, sans-serif">
+    <textPath href="#ctv-arc-top" startOffset="50%" text-anchor="middle">
+      CENTRO DE TERAPIAS VIBRACIONAIS
+    </textPath>
+  </text>
+
+  <!-- Texto Circular Inferior -->
+  <text fill="#5B6B57" font-size="22" font-weight="800" letter-spacing="5" font-family="system-ui, -apple-system, sans-serif">
+    <textPath href="#ctv-arc-bot" startOffset="50%" text-anchor="middle">
+      NATAL . RN . BRASIL
+    </textPath>
+  </text>
+
+  <!-- 3 Órbitas Vibracionais Verdes -->
+  <g stroke="#558B2F" stroke-width="8.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="250" cy="250" rx="64" ry="142" transform="rotate(-30 250 250)" />
+    <ellipse cx="250" cy="250" rx="64" ry="142" transform="rotate(30 250 250)" />
+    <ellipse cx="250" cy="250" rx="64" ry="142" transform="rotate(90 250 250)" />
+  </g>
+
+  <!-- Núcleo Central Polaridade -->
+  <g transform="translate(250, 250)">
+    <circle cx="0" cy="0" r="32" fill="#2C3A28" />
+    <path d="M 0,-32 A 32,32 0 0,1 0,32 A 16,16 0 0,1 0,0 A 16,16 0 0,0 0,-32 Z" fill="#B3452C" />
+    <text x="0" y="-10" fill="#FFFFFF" font-size="16" font-weight="900" text-anchor="middle" dominant-baseline="central" font-family="sans-serif">+</text>
+    <text x="0" y="12" fill="#FFFFFF" font-size="20" font-weight="900" text-anchor="middle" dominant-baseline="central" font-family="sans-serif">-</text>
+  </g>
+
+  <!-- Nós C, T, V -->
+  <!-- C -->
+  <g transform="translate(138, 318)">
+    <circle cx="0" cy="0" r="22" fill="#2C521B" stroke="#FFFFFF" stroke-width="2.5" />
+    <text x="0" y="2" fill="#FFFFFF" font-size="22" font-weight="900" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif">C</text>
+  </g>
+  <!-- T -->
+  <g transform="translate(250, 382)">
+    <circle cx="0" cy="0" r="22" fill="#2C521B" stroke="#FFFFFF" stroke-width="2.5" />
+    <text x="0" y="2" fill="#FFFFFF" font-size="22" font-weight="900" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif">T</text>
+  </g>
+  <!-- V -->
+  <g transform="translate(362, 318)">
+    <circle cx="0" cy="0" r="22" fill="#2C521B" stroke="#FFFFFF" stroke-width="2.5" />
+    <text x="0" y="2" fill="#FFFFFF" font-size="22" font-weight="900" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif">V</text>
+  </g>
+</svg>

@@ -8,7 +8,6 @@ import {
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
-import CTVLogo from "./components/CTVLogo";
 
 /* =========================================================================
    TEMA — Portal CTV (Centro de Terapias Vibracionais)
@@ -26,7 +25,103 @@ const T = {
   border: "#E1E9DA",
   amber: "#B98900",
   red: "#B3452C",
-};
+};/* =========================================================================
+   COMPONENTE DE LOGOTIPO (Circular, sem contorno/frame, bg verde suave)
+   ========================================================================= */
+function Logo({
+  size = 40,
+  className = "",
+  rounded = "rounded-full",
+  variant = "soft",
+}: {
+  size?: number | string;
+  className?: string;
+  rounded?: string;
+  variant?: "soft" | "solid" | "white" | "transparent";
+}) {
+  const [customLogo, setCustomLogo] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("ctv_custom_logo");
+    } catch {
+      return null;
+    }
+  });
+  const [sourceIndex, setSourceIndex] = useState(0);
+
+  const candidateSources = useMemo(() => {
+    if (customLogo) return [customLogo, "/logo.svg", "/logo.png"];
+    return ["/logo.svg", "/logo.png"];
+  }, [customLogo]);
+
+  useEffect(() => {
+    const updateLogo = () => {
+      try {
+        const saved = localStorage.getItem("ctv_custom_logo");
+        setCustomLogo(saved);
+        setSourceIndex(0);
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("ctv-logo-updated", updateLogo);
+    window.addEventListener("storage", updateLogo);
+    return () => {
+      window.removeEventListener("ctv-logo-updated", updateLogo);
+      window.removeEventListener("storage", updateLogo);
+    };
+  }, []);
+
+  const widthStyle = typeof size === "number" ? `${size}px` : size;
+  const heightStyle = typeof size === "number" ? `${size}px` : size;
+  const currentSrc = sourceIndex < candidateSources.length ? candidateSources[sourceIndex] : null;
+
+  const bgStyle =
+    variant === "soft"
+      ? { background: T.primarySoft }
+      : variant === "solid"
+      ? { background: T.primary }
+      : variant === "white"
+      ? { background: "#FFFFFF" }
+      : { background: "transparent" };
+
+  return (
+    <div
+      className={`inline-flex items-center justify-center shrink-0 overflow-hidden ${rounded} ${className}`}
+      style={{
+        width: widthStyle,
+        height: heightStyle,
+        ...bgStyle,
+      }}
+      title="Centro de Terapias Vibracionais"
+    >
+      {currentSrc ? (
+        <img
+          key={currentSrc}
+          src={currentSrc}
+          alt="CTV"
+          className="w-full h-full object-contain p-1 select-none"
+          onError={() => setSourceIndex((i) => i + 1)}
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center text-center w-full h-full p-1 select-none">
+          <span
+            className="font-black text-xs sm:text-sm tracking-wider leading-none"
+            style={{ color: variant === "solid" ? "#FFFFFF" : T.dark }}
+          >
+            CTV
+          </span>
+          <span
+            className="text-[8px] font-semibold tracking-tight uppercase leading-tight opacity-75 mt-0.5"
+            style={{ color: variant === "solid" ? "#FFFFFF" : T.primary }}
+          >
+            Terapia
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const WHATSAPP_NUMBER = "558499040049";
 const ADMIN_PASSWORD = "ctv2024";
@@ -1481,7 +1576,7 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="max-w-sm mx-auto py-16 text-center">
       <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-        <CTVLogo size={72} />
+        <Logo size={68} rounded="rounded-full" variant="soft" />
       </div>
       <h3 className="text-lg font-semibold mb-1" style={{ color: T.dark }}>Acesso administrativo</h3>
       <p className="text-sm mb-6" style={{ color: T.textSoft }}>Digite a senha para gerenciar o portal.</p>
@@ -2483,6 +2578,34 @@ function AdminBackup({
     }
   };
 
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const [currentLogo, setCurrentLogo] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("ctv_custom_logo");
+    } catch {
+      return null;
+    }
+  });
+
+  const handleUploadLogo = async (file: File) => {
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file, 800, 0.95);
+      localStorage.setItem("ctv_custom_logo", dataUrl);
+      setCurrentLogo(dataUrl);
+      window.dispatchEvent(new Event("ctv-logo-updated"));
+      setMessage("Logotipo atualizado com sucesso em todo o portal!");
+    } catch {
+      setMessage("Erro ao processar imagem da logo.");
+    }
+  };
+
+  const handleResetLogo = () => {
+    localStorage.removeItem("ctv_custom_logo");
+    setCurrentLogo(null);
+    window.dispatchEvent(new Event("ctv-logo-updated"));
+    setMessage("Logotipo redefinido para o padrão.");
+  };
+
   return (
     <div className="space-y-4 max-w-xl">
       {message && (
@@ -2491,6 +2614,49 @@ function AdminBackup({
           <button onClick={() => setMessage(null)} className="text-xs font-semibold underline">OK</button>
         </div>
       )}
+
+      {/* Logotipo do Portal */}
+      <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
+        <p className="font-semibold mb-1.5" style={{ color: T.dark }}>Logotipo do CTV</p>
+        <p className="text-sm mb-4" style={{ color: T.textSoft }}>
+          O sistema carrega automaticamente imagens salvas na pasta <code>public/logo.png</code> ou <code>public/logo.svg</code>, ou você pode fazer upload direto da imagem oficial abaixo:
+        </p>
+        
+        <div className="flex items-center gap-4 p-3 rounded-xl border bg-white/60 mb-4" style={{ borderColor: T.border }}>
+          <Logo size={60} rounded="rounded-full" variant="soft" />
+          <div className="text-xs" style={{ color: T.textSoft }}>
+            <p className="font-medium" style={{ color: T.dark }}>Status da Logo:</p>
+            <p>{currentLogo ? "Usando logotipo personalizado (upload)" : "Usando imagem da pasta public/ ou símbolo padrão"}</p>
+          </div>
+        </div>
+
+        <input
+          ref={logoFileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleUploadLogo(e.target.files[0])}
+        />
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => logoFileRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
+            style={{ background: T.primary }}
+          >
+            <ImageIcon className="w-4 h-4" /> Enviar nova imagem da Logo
+          </button>
+          {currentLogo && (
+            <button
+              onClick={handleResetLogo}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition hover:bg-black/5"
+              style={{ borderColor: T.border, color: T.dark }}
+            >
+              <Trash2 className="w-4 h-4" /> Restaurar padrão
+            </button>
+          )}
+        </div>
+      </div>
       <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
         <div className="flex items-center justify-between mb-2">
           <p className="font-semibold" style={{ color: T.dark }}>Banco de Dados em Nuvem</p>
@@ -2627,8 +2793,8 @@ function VibrationalHero({ onStart }: { onStart: () => void }) {
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_1s]" style={{ border: `1.5px solid ${T.primary}` }} />
         <span className="absolute inset-0 rounded-full animate-[ripple_3s_ease-out_infinite_2s]" style={{ border: `1.5px solid ${T.primary}` }} />
-        <div className="w-28 h-28 flex items-center justify-center">
-          <CTVLogo size={96} />
+        <div className="w-24 h-24 flex items-center justify-center">
+          <Logo size={88} rounded="rounded-full" variant="soft" />
         </div>
       </div>
       <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: T.primary }}>Centro de Terapias Vibracionais</p>
@@ -2713,7 +2879,7 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
     <header className="sticky top-0 z-40 backdrop-blur-md border-b" style={{ background: `${T.bg}E6`, borderColor: T.border }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <button onClick={() => setView("inicio")} className="flex items-center gap-2.5 group text-left">
-          <CTVLogo size={36} className="transition group-hover:scale-105" />
+          <Logo size={36} rounded="rounded-full" variant="soft" className="transition group-hover:scale-105" />
           <div>
             <span className="font-bold text-xs sm:text-sm tracking-wide block uppercase" style={{ color: T.dark, fontFamily: "system-ui, -apple-system, sans-serif" }}>
               CTV - CENTRO DE TERAPIAS VIBRACIONAIS
@@ -2976,7 +3142,7 @@ export default function App() {
       </main>
 
       <footer className="max-w-5xl mx-auto px-4 sm:px-6 py-8 text-center flex flex-col items-center gap-2.5">
-        <CTVLogo size={44} />
+        <Logo size={44} rounded="rounded-full" variant="soft" />
         <p className="text-xs" style={{ color: T.textSoft }}>Centro de Terapias Vibracionais · Natal, RN, Brasil · Cuidado, presença e equilíbrio.</p>
       </footer>
 

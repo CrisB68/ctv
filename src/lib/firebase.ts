@@ -1,6 +1,9 @@
 import { initializeApp, getApps } from 'firebase/app';
 import {
-  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  setLogLevel,
   collection,
   doc,
   setDoc,
@@ -22,9 +25,23 @@ export const firebaseConfig = {
   recaptchaSiteKey: ""
 };
 
-// Initialize Firebase SDK
+// Set Firestore log level to error to avoid noisy transient offline/fallback warning outputs
+setLogLevel('error');
+
+// Initialize Firebase SDK with resilient settings for browser and iframe environments
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+export const db = initializeFirestore(
+  app,
+  {
+    experimentalAutoDetectLongPolling: true,
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  },
+  firebaseConfig.firestoreDatabaseId
+);
+
 export const auth = getAuth(app);
 
 export enum OperationType {
