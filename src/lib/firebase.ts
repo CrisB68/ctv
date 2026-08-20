@@ -25,8 +25,8 @@ export const firebaseConfig = {
   recaptchaSiteKey: ""
 };
 
-// Set Firestore log level to error to avoid noisy transient offline/fallback warning outputs
-setLogLevel('error');
+// Set Firestore log level to silent to prevent noisy transient warnings in sandbox/iframe environments
+setLogLevel('silent');
 
 // Initialize Firebase SDK with resilient settings for browser and iframe environments
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
@@ -34,7 +34,7 @@ const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 export const db = initializeFirestore(
   app,
   {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager(),
     }),

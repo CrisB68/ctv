@@ -5,7 +5,8 @@ import {
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
   Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
-  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw
+  CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw,
+  GripVertical, ChevronUp, ChevronDown
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
 
@@ -588,6 +589,170 @@ function StatusBadge({ status }: { status: BookingStatus }) {
 }
 
 /* =========================================================================
+   RÉGUA DE LEITURA ACESSÍVEL (Desktop e Mobile / Touch Friendly)
+   ========================================================================= */
+function ReadingRuler({
+  active,
+  onClose,
+}: {
+  active: boolean;
+  onClose: () => void;
+}) {
+  const [posY, setPosY] = useState(() => (typeof window !== "undefined" ? Math.round(window.innerHeight * 0.38) : 250));
+  const [isDragging, setIsDragging] = useState(false);
+  const startDragY = useRef(0);
+  const startPosY = useRef(0);
+
+  // Inicializa a régua em 38% da altura da tela ao ativar
+  useEffect(() => {
+    if (!active) return;
+    setPosY((cur) => (cur === 0 ? Math.round(window.innerHeight * 0.38) : cur));
+  }, [active]);
+
+  // No desktop (com ponteiro fino / mouse), a régua acompanha o cursor
+  useEffect(() => {
+    if (!active) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && !isDragging) {
+        setPosY(Math.max(30, Math.min(window.innerHeight - 60, e.clientY)));
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [active, isDragging]);
+
+  // Manipulação de arraste com toque / mouse na alça
+  const handleDragStart = (clientY: number) => {
+    setIsDragging(true);
+    startDragY.current = clientY;
+    startPosY.current = posY;
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMove = (e: MouseEvent | TouchEvent | PointerEvent) => {
+      let clientY = 0;
+      if ("touches" in e && e.touches.length > 0) {
+        clientY = e.touches[0].clientY;
+      } else if ("clientY" in e) {
+        clientY = (e as MouseEvent).clientY;
+      }
+      if (clientY > 0) {
+        const delta = clientY - startDragY.current;
+        const newY = Math.max(25, Math.min(window.innerHeight - 65, startPosY.current + delta));
+        setPosY(newY);
+      }
+    };
+
+    const handleEnd = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+    window.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleEnd);
+    window.addEventListener("touchcancel", handleEnd);
+
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleEnd);
+      window.removeEventListener("pointercancel", handleEnd);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleEnd);
+      window.removeEventListener("touchcancel", handleEnd);
+    };
+  }, [isDragging]);
+
+  if (!active) return null;
+
+  const nudge = (delta: number) => {
+    setPosY((prev) => Math.max(25, Math.min(window.innerHeight - 65, prev + delta)));
+  };
+
+  return (
+    <div
+      className="fixed left-0 right-0 z-50 pointer-events-none transition-[top] duration-75 select-none"
+      style={{ top: Math.max(0, posY - 26) }}
+    >
+      {/* Faixa destacada de leitura (não bloqueia toques/rolagem da página) */}
+      <div
+        className="w-full h-14 pointer-events-none"
+        style={{
+          background: "rgba(253, 224, 71, 0.24)",
+          borderTop: "2.5px solid rgba(202, 138, 4, 0.8)",
+          borderBottom: "2.5px solid rgba(202, 138, 4, 0.8)",
+          boxShadow: "0 0 16px rgba(202, 138, 4, 0.25)",
+        }}
+      />
+
+      {/* Alça Flutuante Touch / Mobile Friendly para posicionamento fácil */}
+      <div
+        className="absolute right-3 -top-3.5 pointer-events-auto flex items-center gap-1 bg-amber-500 text-white px-2 py-1 rounded-full shadow-lg border border-amber-600/40 text-xs font-semibold backdrop-blur-sm transition-transform active:scale-95"
+        style={{ touchAction: "none" }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          handleDragStart(e.clientY);
+        }}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          if (e.touches.length > 0) handleDragStart(e.touches[0].clientY);
+        }}
+        role="region"
+        aria-label="Controles da régua de leitura"
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            nudge(-36);
+          }}
+          aria-label="Subir régua"
+          className="p-1 rounded-full hover:bg-black/15 active:bg-black/25"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+        </button>
+
+        <div className="flex items-center gap-1 cursor-grab active:cursor-grabbing px-1">
+          <GripVertical className="w-3.5 h-3.5 opacity-90" />
+          <span className="text-[11px] tracking-tight hidden sm:inline">Régua</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            nudge(36);
+          }}
+          aria-label="Descer régua"
+          className="p-1 rounded-full hover:bg-black/15 active:bg-black/25"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          aria-label="Fechar régua"
+          className="p-1 ml-0.5 rounded-full hover:bg-black/15 active:bg-black/25"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
    BARRA DE ACESSIBILIDADE
    ========================================================================= */
 interface A11yState {
@@ -1133,16 +1298,37 @@ function BookingWizard({
   const [slotTakenWarning, setSlotTakenWarning] = useState(false);
 
   useEffect(() => {
-    if (presetTherapyId) setTherapyId(presetTherapyId);
-    if (presetTherapistId) {
+    if (presetTherapyId && presetTherapistId) {
+      setTherapyId(presetTherapyId);
       setTherapistId(presetTherapistId);
-      setStep(presetTherapyId ? 3 : 2);
+      setStep(3);
     } else if (presetTherapyId) {
+      setTherapyId(presetTherapyId);
       setStep(2);
+    } else if (presetTherapistId) {
+      setTherapistId(presetTherapistId);
+      const th = therapists.find((p) => p.id === presetTherapistId);
+      if (th && th.specialties.length === 1) {
+        setTherapyId(th.specialties[0]);
+      }
+      setStep(1);
     }
-  }, [presetTherapyId, presetTherapistId]);
+  }, [presetTherapyId, presetTherapistId, therapists]);
 
-  const visibleTherapies = sortByName(therapies.filter((t) => !t.hidden));
+  const visibleTherapies = useMemo(() => {
+    const list = sortByName(therapies.filter((t) => !t.hidden));
+    // Se o usuário veio com terapeuta pré-selecionado e o terapeuta tem especialidades definidas,
+    // priorizamos exibir as terapias que este terapeuta atende
+    if (therapistId && !presetTherapyId) {
+      const th = therapists.find((p) => p.id === therapistId);
+      if (th && th.specialties.length > 0) {
+        const matching = list.filter((t) => th.specialties.includes(t.id));
+        if (matching.length > 0) return matching;
+      }
+    }
+    return list;
+  }, [therapies, therapistId, presetTherapyId, therapists]);
+
   const filteredTherapies = useMemo(() => {
     const q = therapySearch.trim().toLowerCase();
     if (!q) return visibleTherapies;
@@ -1152,7 +1338,7 @@ function BookingWizard({
   }, [visibleTherapies, therapySearch]);
 
   const eligibleTherapists = sortByName(
-    therapists.filter((p) => !p.hidden && (!therapyId || p.specialties.includes(therapyId)))
+    therapists.filter((p) => !p.hidden && (!therapyId || p.specialties.length === 0 || p.specialties.includes(therapyId)))
   );
   const filteredTherapists = useMemo(() => {
     const q = therapistSearch.trim().toLowerCase();
@@ -1189,8 +1375,8 @@ function BookingWizard({
   }, [date, therapistId]);
 
   const canGoStep2 = !!therapyId;
-  const canGoStep3 = !!therapistId;
-  const canFinish = !!(date && time && clientName.trim() && clientPhone.trim());
+  const canGoStep3 = !!therapyId && !!therapistId;
+  const canFinish = !!(therapyId && therapistId && date && time && clientName.trim() && clientPhone.trim());
 
   const steps = [
     { n: 1, label: "Terapia" },
@@ -1747,10 +1933,11 @@ function AdminAppointments({
         const waMsg =
           `Olá ${clientFirstName}! Aqui é a Sheyla do CTV, sobre sua solicitação para agendamento:\n\n` +
           `*${therapy?.name || "Terapia"}*\n` +
+          `Terapeuta: ${therapist?.name || ""}\n` +
           `${dateDisplay}\n` +
           `às ${a.time}\n\n` +
           `Posso confirmar agora?\n` +
-          `Se precisa de mais alguma informação, pode enviar um áudio que respondo o mais breve possível.`;
+          `Se precisar de mais alguma informação, pode enviar um áudio que responderei o mais breve possível.`;
         return (
           <div key={a.id} className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center gap-4 justify-between" style={{ borderColor: T.border, background: T.card }}>
             <div className="flex-1 min-w-0">
@@ -1838,8 +2025,9 @@ function AdminTherapies({
 
   const filteredTherapies = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return therapies;
-    return therapies.filter((t) => t.name.toLowerCase().includes(q) || t.summary.toLowerCase().includes(q));
+    const list = sortByName(therapies);
+    if (!q) return list;
+    return list.filter((t) => t.name.toLowerCase().includes(q) || t.summary.toLowerCase().includes(q));
   }, [therapies, search]);
 
   if (editing || creating) {
@@ -1942,6 +2130,8 @@ function TherapyForm({
   const toggleTherapist = (id: string) =>
     setLinkedTherapistIds((arr) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]));
 
+  const sortedTherapists = useMemo(() => sortByName(therapists), [therapists]);
+
   return (
     <form
       onSubmit={(e) => {
@@ -1995,11 +2185,11 @@ function TherapyForm({
         </select>
       </FormField>
       <FormField label="Terapeutas que aplicam esta terapia">
-        {therapists.length === 0 ? (
+        {sortedTherapists.length === 0 ? (
           <p className="text-xs" style={{ color: T.textSoft }}>Nenhum terapeuta cadastrado ainda.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {therapists.map((p) => (
+            {sortedTherapists.map((p) => (
               <button
                 type="button"
                 key={p.id}
@@ -2051,8 +2241,9 @@ function AdminTherapists({
 
   const filteredTherapists = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return therapists;
-    return therapists.filter((p) => {
+    const list = sortByName(therapists);
+    if (!q) return list;
+    return list.filter((p) => {
       const matchName = p.name.toLowerCase().includes(q);
       const matchTherapy = p.specialties.some((sid) => {
         const th = therapies.find((t) => t.id === sid);
@@ -2387,7 +2578,7 @@ function TherapistForm({
       </FormField>
       <FormField label="Especialidades">
         <div className="flex flex-wrap gap-2">
-          {therapies.map((t) => (
+          {sortByName(therapies).map((t) => (
             <button type="button" key={t.id} onClick={() => toggle(specialties, t.id, setSpecialties)} className="px-3 py-1.5 rounded-full text-xs font-medium border" style={{ borderColor: specialties.includes(t.id) ? T.primary : T.border, background: specialties.includes(t.id) ? T.primary : "transparent", color: specialties.includes(t.id) ? "#fff" : T.text }}>
               {t.name}
             </button>
@@ -2974,7 +3165,6 @@ export default function App() {
   const [presetTherapistId, setPresetTherapistId] = useState<string | null>(null);
 
   const [a11y, setA11y] = useState<A11yState>({ fontScale: 1, highContrast: false, rulerActive: false });
-  const [rulerY, setRulerY] = useState(0);
   const [isSpeakingPage, setIsSpeakingPage] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -2985,33 +3175,6 @@ export default function App() {
       document.documentElement.style.fontSize = '';
     };
   }, [a11y.fontScale]);
-
-  useEffect(() => {
-    if (!a11y.rulerActive) return;
-
-    // Se ainda não foi posicionado, coloca a régua em 35% da altura da tela
-    setRulerY((current) => (current === 0 ? Math.round(window.innerHeight * 0.35) : current));
-
-    const handlePointer = (e: MouseEvent | TouchEvent | PointerEvent) => {
-      if ("touches" in e && e.touches.length > 0) {
-        setRulerY(e.touches[0].clientY);
-      } else if ("clientY" in e) {
-        setRulerY(e.clientY);
-      }
-    };
-
-    window.addEventListener("pointermove", handlePointer);
-    window.addEventListener("mousemove", handlePointer);
-    window.addEventListener("touchmove", handlePointer, { passive: true });
-    window.addEventListener("touchstart", handlePointer, { passive: true });
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointer);
-      window.removeEventListener("mousemove", handlePointer);
-      window.removeEventListener("touchmove", handlePointer);
-      window.removeEventListener("touchstart", handlePointer);
-    };
-  }, [a11y.rulerActive]);
 
   const goBook = (opts?: { therapyId?: string; therapistId?: string }) => {
     setPresetTherapyId(opts?.therapyId ?? null);
@@ -3070,18 +3233,10 @@ export default function App() {
         ::selection { background: ${T.primaryLight}; }
       `}</style>
 
-      {a11y.rulerActive && (
-        <div
-          className="fixed left-0 right-0 h-12 pointer-events-none z-50 transition-[top] duration-75 ease-out"
-          style={{
-            top: Math.max(0, rulerY - 24),
-            background: "rgba(253, 224, 71, 0.22)",
-            borderTop: "2px solid rgba(202, 138, 4, 0.65)",
-            borderBottom: "2px solid rgba(202, 138, 4, 0.65)",
-            boxShadow: "0 0 12px rgba(202, 138, 4, 0.2)",
-          }}
-        />
-      )}
+      <ReadingRuler
+        active={a11y.rulerActive}
+        onClose={() => setA11y((s) => ({ ...s, rulerActive: false }))}
+      />
 
       <Header view={view} setView={setView} />
 
