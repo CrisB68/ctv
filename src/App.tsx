@@ -6,7 +6,7 @@ import {
   Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, Loader2, ShieldCheck,
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw,
-  GripVertical, ChevronUp, ChevronDown
+  GripVertical, ChevronUp, ChevronDown, Zap, AlertCircle, Info
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
 
@@ -972,7 +972,7 @@ function TherapyModal({
               className="flex-[2] flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition hover:brightness-110"
               style={{ background: T.primary }}
             >
-              Agendar esta terapia <ArrowRight className="w-4 h-4" />
+              <Zap className="w-4 h-4 text-amber-300" /> Agendar sessão <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -983,14 +983,19 @@ function TherapyModal({
 
 function TherapyCatalog({
   therapies,
-  onBook,
+  therapists,
+  appointments,
+  onCompleteBooking,
 }: {
   therapies: Therapy[];
-  onBook: (therapyId: string) => void;
+  therapists: Therapist[];
+  appointments: Appointment[];
+  onCompleteBooking: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;
 }) {
   const [query, setQuery] = useState("");
   const [modFilter, setModFilter] = useState<"todas" | "presencial" | "distancia">("todas");
   const [active, setActive] = useState<Therapy | null>(null);
+  const [quickBookingTherapy, setQuickBookingTherapy] = useState<Therapy | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
   const speak = (text: string) => {
@@ -1026,7 +1031,7 @@ function TherapyCatalog({
       <SectionHeader
         eyebrow="Catálogo"
         title="Terapias oferecidas"
-        subtitle="Explore nossas práticas vibracionais e encontre a que ressoa com você."
+        subtitle="Explore e conheça nossas práticas vibracionais e solicite sua sessão com os terapeutas habilitados."
       />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -1064,23 +1069,51 @@ function TherapyCatalog({
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((t) => {
             const IconEl = ICONS[t.icon];
+            const qualifiedTherapists = therapists.filter(
+              (p) => !p.hidden && p.specialties.includes(t.id)
+            );
+
             return (
-              <button
+              <div
                 key={t.id}
-                onClick={() => setActive(t)}
-                className="text-left rounded-2xl p-5 border transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2"
+                className="rounded-2xl p-5 border flex flex-col justify-between transition hover:-translate-y-0.5 hover:shadow-md"
                 style={{ borderColor: T.border, background: T.card }}
               >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: T.primarySoft }}>
-                  <IconEl className="w-5 h-5" style={{ color: T.primary }} />
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: T.primarySoft }}>
+                      <IconEl className="w-5 h-5" style={{ color: T.primary }} />
+                    </div>
+                    <button
+                      onClick={() => setActive(t)}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-lg border hover:bg-black/5 transition flex items-center gap-1"
+                      style={{ borderColor: T.border, color: T.textSoft }}
+                      title="Ver detalhes da terapia"
+                    >
+                      <Info className="w-3.5 h-3.5" /> Detalhes
+                    </button>
+                  </div>
+                  <h3 className="font-semibold mb-1.5" style={{ color: T.dark }}>{t.name}</h3>
+                  <p className="text-sm mb-3 leading-relaxed" style={{ color: T.textSoft }}>{t.summary}</p>
+                  
+                  <div className="flex items-center gap-2 flex-wrap mb-4">
+                    <ModalityBadge modality={t.modality} />
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.04)", color: T.textSoft }}>
+                      {qualifiedTherapists.length} terapeuta{qualifiedTherapists.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="font-semibold mb-1.5" style={{ color: T.dark }}>{t.name}</h3>
-                <p className="text-sm mb-4 leading-relaxed" style={{ color: T.textSoft }}>{t.summary}</p>
-                <div className="flex items-center justify-between">
-                  <ModalityBadge modality={t.modality} />
-                  <ChevronRight className="w-4 h-4" style={{ color: T.textSoft }} />
+
+                <div className="pt-2 border-t flex gap-2" style={{ borderColor: T.border }}>
+                  <button
+                    onClick={() => setQuickBookingTherapy(t)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+                    style={{ background: T.primary }}
+                  >
+                    <Zap className="w-4 h-4 text-amber-300" /> Agendar terapia <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -1096,11 +1129,25 @@ function TherapyCatalog({
           onBook={(id) => {
             stopSpeak();
             setActive(null);
-            onBook(id);
+            const found = therapies.find((t) => t.id === id);
+            if (found) setQuickBookingTherapy(found);
           }}
           speak={speak}
           stopSpeak={stopSpeak}
           isSpeaking={speakingId === "modal"}
+        />
+      )}
+
+      {quickBookingTherapy && (
+        <QuickTherapyBookingModal
+          therapy={quickBookingTherapy}
+          therapists={therapists}
+          therapies={therapies}
+          appointments={appointments}
+          onClose={() => setQuickBookingTherapy(null)}
+          onComplete={(appt) => {
+            onCompleteBooking(appt);
+          }}
         />
       )}
     </section>
@@ -1132,17 +1179,762 @@ function TherapistAvatar({ therapist, size = "w-12 h-12" }: { therapist: Therapi
   );
 }
 
+interface QuickSlot {
+  date: string; // YYYY-MM-DD
+  dateDisplay: string; // ex: "Amanhã, 21 de agosto (Sex)"
+  time: string; // ex: "09:00"
+  weekday: string;
+}
+
+/**
+ * Calcula todos os horários livres e disponíveis nos próximos N dias (padrão 30 dias) para um terapeuta
+ */
+function getUpcomingAvailableSlots(
+  therapist: Therapist,
+  appointments: Appointment[],
+  limitDays = 30
+): QuickSlot[] {
+  const slots: QuickSlot[] = [];
+  const today = new Date();
+  
+  // Mapeamento de dia da semana do JS (0-6) para nome no app
+  const dayNameMap: Record<number, string> = {
+    1: "Segunda",
+    2: "Terça",
+    3: "Quarta",
+    4: "Quinta",
+    5: "Sexta",
+    6: "Sábado",
+  };
+
+  for (let i = 0; i <= limitDays; i++) {
+    const current = new Date(today);
+    current.setDate(today.getDate() + i);
+
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const day = String(current.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    const jsDay = current.getDay();
+    if (jsDay === 0) continue; // Domingo sem atendimento
+
+    const weekday = dayNameMap[jsDay];
+    if (!weekday) continue;
+
+    // Verifica se a data está bloqueada especificamente para este terapeuta
+    if ((therapist.unavailableDates ?? []).includes(dateStr)) continue;
+
+    const dayAvailability = therapist.availability[weekday] ?? [];
+    if (dayAvailability.length === 0) continue;
+
+    // Horários já reservados
+    const takenTimes = appointments
+      .filter(
+        (a) =>
+          a.therapistId === therapist.id &&
+          a.date === dateStr &&
+          (a.status === "pendente" || a.status === "confirmado")
+      )
+      .map((a) => a.time);
+
+    const freeTimes = dayAvailability.filter((t) => !takenTimes.includes(t)).sort();
+
+    let relativePrefix = "";
+    if (i === 0) relativePrefix = "Hoje, ";
+    else if (i === 1) relativePrefix = "Amanhã, ";
+
+    const monthNames = [
+      "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    ];
+    const dateDisplay = `${relativePrefix}${current.getDate()} de ${monthNames[current.getMonth()]} (${weekday})`;
+
+    for (const time of freeTimes) {
+      slots.push({
+        date: dateStr,
+        dateDisplay,
+        time,
+        weekday,
+      });
+    }
+  }
+
+  return slots;
+}
+
+/* =========================================================================
+   MODAL DE AGENDAMENTO RÁPIDO SOS (Próximos 30 dias com o terapeuta escolhido)
+   ========================================================================= */
+function QuickTherapistBookingModal({
+  therapist,
+  therapies,
+  appointments,
+  onClose,
+  onComplete,
+}: {
+  therapist: Therapist;
+  therapies: Therapy[];
+  appointments: Appointment[];
+  onClose: () => void;
+  onComplete: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;
+}) {
+  // Filtra apenas as terapias estritamente atendidas por esse terapeuta
+  const availableTherapies = useMemo(() => {
+    return therapies.filter((t) => !t.hidden && therapist.specialties.includes(t.id));
+  }, [therapies, therapist]);
+
+  // Se tiver só 1 especialidade, já pré-seleciona ela
+  const [selectedTherapyId, setSelectedTherapyId] = useState<string>(() => {
+    if (availableTherapies.length === 1) return availableTherapies[0].id;
+    return availableTherapies[0]?.id || "";
+  });
+
+  const [selectedSlot, setSelectedSlot] = useState<QuickSlot | null>(null);
+  const [modality, setModality] = useState<"presencial" | "distancia">("presencial");
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [sent, setSent] = useState(false);
+
+  // Calcula os horários dos próximos 30 dias
+  const availableSlots = useMemo(() => {
+    return getUpcomingAvailableSlots(therapist, appointments, 30);
+  }, [therapist, appointments]);
+
+  // Agrupa os horários por data
+  const groupedSlots = useMemo(() => {
+    const map = new Map<string, { dateDisplay: string; times: string[]; date: string; weekday: string }>();
+    for (const s of availableSlots) {
+      if (!map.has(s.date)) {
+        map.set(s.date, { dateDisplay: s.dateDisplay, times: [], date: s.date, weekday: s.weekday });
+      }
+      map.get(s.date)!.times.push(s.time);
+    }
+    return Array.from(map.values());
+  }, [availableSlots]);
+
+  const selectedTherapy = therapies.find((t) => t.id === selectedTherapyId);
+
+  const canSubmit = !!(
+    selectedTherapyId &&
+    selectedSlot &&
+    clientName.trim() &&
+    clientPhone.trim()
+  );
+
+  const buildMessage = () => {
+    const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
+    return (
+      `Olá! Gostaria de solicitar um agendamento rápido no CTV\n\n` +
+      `Terapeuta: ${therapist.name}\n` +
+      `Terapia: ${selectedTherapy?.name || "Terapia Integrativa"}\n` +
+      `Data: ${selectedSlot?.dateDisplay.replace(/^[A-Za-z]+,\s*/, "")} às ${selectedSlot?.time}\n` +
+      `Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
+      `Meu nome: ${clientName.trim()}\n` +
+      `Meu WhatsApp: ${phoneFormatted}\n\n` +
+      `Aguardo seu contato!`
+    );
+  };
+
+  const handleConfirm = () => {
+    if (!selectedSlot || !selectedTherapyId) return;
+
+    onComplete({
+      therapyId: selectedTherapyId,
+      therapistId: therapist.id,
+      date: selectedSlot.date,
+      time: selectedSlot.time,
+      modality,
+      clientName: clientName.trim(),
+      clientPhone: maskPhone(clientPhone) || clientPhone.trim(),
+    });
+
+    const url = getWhatsAppUrl(WHATSAPP_NUMBER, buildMessage());
+    window.open(url, "_blank");
+    setSent(true);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+      style={{ background: "rgba(35, 48, 38, 0.65)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto border shadow-2xl p-5 sm:p-7 transition-all animate-[riseIn_.2s_ease]"
+        style={{ borderColor: T.border, background: T.card }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-4 mb-4 border-b" style={{ borderColor: T.border }}>
+          <div className="flex items-center gap-3">
+            <TherapistAvatar therapist={therapist} size="w-12 h-12" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: T.primarySoft, color: T.dark }}>
+                  <Zap className="w-3 h-3 inline mr-1 text-amber-600" /> Agendamento (30 dias)
+                </span>
+              </div>
+              <h2 className="text-lg font-bold" style={{ color: T.dark }}>
+                Agendar com {therapist.name}
+              </h2>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
+          >
+            <X className="w-5 h-5" style={{ color: T.textSoft }} />
+          </button>
+        </div>
+
+        {sent ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: T.primarySoft }}>
+              <Check className="w-8 h-8" style={{ color: T.primary }} />
+            </div>
+            <h3 className="text-lg font-bold mb-2" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
+              Solicitação enviada com sucesso!
+            </h3>
+            <p className="text-sm mb-6 leading-relaxed" style={{ color: T.textSoft }}>
+              Abrimos o WhatsApp do CTV com todos os dados da sessão com <strong>{therapist.name}</strong> para confirmação imediata.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
+              style={{ background: T.primary }}
+            >
+              Concluir e voltar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* 1. Escolha de terapia (apenas as que o terapeuta atende) */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: T.textSoft }}>
+                1. Terapia ({availableTherapies.length})
+              </label>
+              {availableTherapies.length === 0 ? (
+                <div className="p-3.5 rounded-xl border text-xs flex items-center gap-2" style={{ borderColor: T.border, background: T.primarySoft, color: T.text }}>
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Este terapeuta ainda não possui terapias específicas vinculadas no painel. O agendamento será registrado como Atendimento Integrativo.</span>
+                </div>
+              ) : availableTherapies.length === 1 ? (
+                <div className="p-3.5 rounded-xl border flex items-center gap-3" style={{ borderColor: T.primary, background: T.primarySoft }}>
+                  <Sparkles className="w-5 h-5" style={{ color: T.primary }} />
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: T.dark }}>{availableTherapies[0].name}</p>
+                    <p className="text-xs" style={{ color: T.textSoft }}>{availableTherapies[0].duration} · {availableTherapies[0].contribution}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {availableTherapies.map((t) => {
+                    const isSel = selectedTherapyId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedTherapyId(t.id)}
+                        className="text-left p-3 rounded-xl border-2 transition flex items-center gap-2.5"
+                        style={{
+                          borderColor: isSel ? T.primary : T.border,
+                          background: isSel ? T.primarySoft : "transparent",
+                        }}
+                      >
+                        <Sparkles className="w-4 h-4 shrink-0" style={{ color: isSel ? T.primary : T.textSoft }} />
+                        <span className="text-xs font-semibold truncate" style={{ color: T.dark }}>{t.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Escolha de data e horário livre nos próximos 30 dias */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold uppercase tracking-wider block" style={{ color: T.textSoft }}>
+                  2. Próximos horários disponíveis (30 dias)
+                </label>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: T.primarySoft, color: T.dark }}>
+                  {availableSlots.length} vaga{availableSlots.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {groupedSlots.length === 0 ? (
+                <div className="p-4 rounded-xl border text-center text-xs space-y-1.5" style={{ borderColor: T.border, background: T.primarySoft, color: T.textSoft }}>
+                  <p className="font-medium" style={{ color: T.dark }}>Nenhum horário livre encontrado nos próximos 30 dias.</p>
+                  <p>Consulte diretamente pelo WhatsApp oficial do CTV para encaixes.</p>
+                </div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto pr-1 space-y-2.5 rounded-xl border p-2.5" style={{ borderColor: T.border, background: "rgba(0,0,0,0.015)" }}>
+                  {groupedSlots.map((group) => (
+                    <div key={group.date} className="space-y-1.5">
+                      <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.dark }}>
+                        <CalendarDays className="w-3.5 h-3.5" style={{ color: T.primary }} />
+                        {group.dateDisplay}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.times.map((time) => {
+                          const isSel = selectedSlot?.date === group.date && selectedSlot?.time === time;
+                          return (
+                            <button
+                              key={time}
+                              type="button"
+                              onClick={() =>
+                                setSelectedSlot({
+                                  date: group.date,
+                                  dateDisplay: group.dateDisplay,
+                                  time,
+                                  weekday: group.weekday,
+                                })
+                              }
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border-2 transition flex items-center gap-1"
+                              style={{
+                                borderColor: isSel ? T.primary : T.border,
+                                background: isSel ? T.primary : T.card,
+                                color: isSel ? "#ffffff" : T.text,
+                              }}
+                            >
+                              <Clock className="w-3 h-3" style={{ color: isSel ? "#ffffff" : T.primary }} />
+                              {time}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Modalidade */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: T.textSoft }}>
+                3. Modalidade
+              </label>
+              <div className="flex gap-2">
+                {(["presencial", "distancia"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setModality(m)}
+                    className="flex-1 py-2 rounded-xl border-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                    style={{
+                      borderColor: modality === m ? T.primary : T.border,
+                      background: modality === m ? T.primarySoft : "transparent",
+                      color: T.dark,
+                    }}
+                  >
+                    {m === "presencial" ? <MapPin className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                    {m === "presencial" ? "Presencial" : "A Distância"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Dados do paciente */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu nome completo</label>
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Nome e sobrenome"
+                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
+                  style={{ borderColor: T.border, color: T.text }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu WhatsApp</label>
+                <input
+                  type="tel"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(maskPhone(e.target.value))}
+                  placeholder="(84) 99999-9999"
+                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
+                  style={{ borderColor: T.border, color: T.text }}
+                />
+              </div>
+            </div>
+
+            {/* Resumo do agendamento */}
+            {selectedSlot && (
+              <div className="p-3 rounded-xl text-xs space-y-1" style={{ background: T.primarySoft, color: T.dark }}>
+                <p><strong>Terapeuta:</strong> {therapist.name}</p>
+                <p><strong>Quando:</strong> {selectedSlot.dateDisplay} às {selectedSlot.time}</p>
+              </div>
+            )}
+
+            {/* Botão de confirmação */}
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={!canSubmit}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition disabled:opacity-40 hover:brightness-110 shadow-sm"
+              style={{ background: T.primary }}
+            >
+              <MessageCircle className="w-4 h-4" /> Confirmar via WhatsApp
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   MODAL DE AGENDAMENTO RÁPIDO POR TERAPIA (Próximos 30 dias com terapeutas da terapia)
+   ========================================================================= */
+function QuickTherapyBookingModal({
+  therapy,
+  therapists,
+  therapies,
+  appointments,
+  onClose,
+  onComplete,
+}: {
+  therapy: Therapy;
+  therapists: Therapist[];
+  therapies: Therapy[];
+  appointments: Appointment[];
+  onClose: () => void;
+  onComplete: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;
+}) {
+  // Filtra estritamente os terapeutas que atendem a terapia selecionada
+  const qualifiedTherapists = useMemo(() => {
+    return therapists.filter((p) => !p.hidden && p.specialties.includes(therapy.id));
+  }, [therapists, therapy]);
+
+  // Pré-seleciona o primeiro terapeuta disponível se houver
+  const [selectedTherapistId, setSelectedTherapistId] = useState<string>(() => {
+    if (qualifiedTherapists.length === 1) return qualifiedTherapists[0].id;
+    return qualifiedTherapists[0]?.id || "";
+  });
+
+  const [selectedSlot, setSelectedSlot] = useState<QuickSlot | null>(null);
+  const [modality, setModality] = useState<"presencial" | "distancia">(() => {
+    if (therapy.modality === "distancia") return "distancia";
+    return "presencial";
+  });
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const selectedTherapist = therapists.find((p) => p.id === selectedTherapistId);
+
+  // Calcula os horários dos próximos 30 dias para o terapeuta selecionado
+  const availableSlots = useMemo(() => {
+    if (!selectedTherapist) return [];
+    return getUpcomingAvailableSlots(selectedTherapist, appointments, 30);
+  }, [selectedTherapist, appointments]);
+
+  // Agrupa os horários por data
+  const groupedSlots = useMemo(() => {
+    const map = new Map<string, { dateDisplay: string; times: string[]; date: string; weekday: string }>();
+    for (const s of availableSlots) {
+      if (!map.has(s.date)) {
+        map.set(s.date, { dateDisplay: s.dateDisplay, times: [], date: s.date, weekday: s.weekday });
+      }
+      map.get(s.date)!.times.push(s.time);
+    }
+    return Array.from(map.values());
+  }, [availableSlots]);
+
+  const canSubmit = !!(
+    selectedTherapistId &&
+    selectedSlot &&
+    clientName.trim() &&
+    clientPhone.trim()
+  );
+
+  const buildMessage = () => {
+    const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
+    return (
+      `Olá! Gostaria de solicitar um agendamento no CTV\n\n` +
+      `Terapia: ${therapy.name}\n` +
+      `Terapeuta: ${selectedTherapist?.name || ""}\n` +
+      `Data: ${selectedSlot?.dateDisplay.replace(/^[A-Za-z]+,\s*/, "")} às ${selectedSlot?.time}\n` +
+      `Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
+      `Meu nome: ${clientName.trim()}\n` +
+      `Meu WhatsApp: ${phoneFormatted}\n\n` +
+      `Aguardo seu contato!`
+    );
+  };
+
+  const handleConfirm = () => {
+    if (!selectedSlot || !selectedTherapistId) return;
+
+    onComplete({
+      therapyId: therapy.id,
+      therapistId: selectedTherapistId,
+      date: selectedSlot.date,
+      time: selectedSlot.time,
+      modality,
+      clientName: clientName.trim(),
+      clientPhone: maskPhone(clientPhone) || clientPhone.trim(),
+    });
+
+    const url = getWhatsAppUrl(WHATSAPP_NUMBER, buildMessage());
+    window.open(url, "_blank");
+    setSent(true);
+  };
+
+  const IconEl = ICONS[therapy.icon];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+      style={{ background: "rgba(35, 48, 38, 0.65)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto border shadow-2xl p-5 sm:p-7 transition-all animate-[riseIn_.2s_ease]"
+        style={{ borderColor: T.border, background: T.card }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-4 mb-4 border-b" style={{ borderColor: T.border }}>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: T.primarySoft }}>
+              <IconEl className="w-6 h-6" style={{ color: T.primary }} />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: T.primarySoft, color: T.dark }}>
+                  <Zap className="w-3 h-3 inline mr-1 text-amber-600" /> Agendamento por Terapia (30 dias)
+                </span>
+              </div>
+              <h2 className="text-lg font-bold" style={{ color: T.dark }}>
+                {therapy.name}
+              </h2>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
+          >
+            <X className="w-5 h-5" style={{ color: T.textSoft }} />
+          </button>
+        </div>
+
+        {sent ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: T.primarySoft }}>
+              <Check className="w-8 h-8" style={{ color: T.primary }} />
+            </div>
+            <h3 className="text-lg font-bold mb-2" style={{ color: T.dark, fontFamily: "Fraunces, serif" }}>
+              Solicitação enviada com sucesso!
+            </h3>
+            <p className="text-sm mb-6 leading-relaxed" style={{ color: T.textSoft }}>
+              Abrimos o WhatsApp do CTV com todos os dados da sua sessão de <strong>{therapy.name}</strong> para confirmação imediata.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
+              style={{ background: T.primary }}
+            >
+              Concluir e voltar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* 1. Escolha de terapeuta (apenas os que realizam esta terapia) */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: T.textSoft }}>
+                1. Escolha o Terapeuta ({qualifiedTherapists.length})
+              </label>
+              {qualifiedTherapists.length === 0 ? (
+                <div className="p-3.5 rounded-xl border text-xs flex items-center gap-2" style={{ borderColor: T.border, background: T.primarySoft, color: T.text }}>
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Ainda não há terapeutas vinculados a esta terapia no painel. Consulte a recepção pelo WhatsApp.</span>
+                </div>
+              ) : qualifiedTherapists.length === 1 ? (
+                <div className="p-3.5 rounded-xl border flex items-center gap-3" style={{ borderColor: T.primary, background: T.primarySoft }}>
+                  <TherapistAvatar therapist={qualifiedTherapists[0]} size="w-10 h-10" />
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: T.dark }}>{qualifiedTherapists[0].name}</p>
+                    <p className="text-xs" style={{ color: T.textSoft }}>Terapeuta voluntário habilitado</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {qualifiedTherapists.map((p) => {
+                    const isSel = selectedTherapistId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTherapistId(p.id);
+                          setSelectedSlot(null);
+                        }}
+                        className="text-left p-3 rounded-xl border-2 transition flex items-center gap-2.5"
+                        style={{
+                          borderColor: isSel ? T.primary : T.border,
+                          background: isSel ? T.primarySoft : "transparent",
+                        }}
+                      >
+                        <TherapistAvatar therapist={p} size="w-8 h-8" />
+                        <span className="text-xs font-semibold truncate" style={{ color: T.dark }}>{p.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Escolha de data e horário livre nos próximos 30 dias */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold uppercase tracking-wider block" style={{ color: T.textSoft }}>
+                  2. Próximos horários disponíveis (30 dias)
+                </label>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: T.primarySoft, color: T.dark }}>
+                  {availableSlots.length} vaga{availableSlots.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {groupedSlots.length === 0 ? (
+                <div className="p-4 rounded-xl border text-center text-xs space-y-1.5" style={{ borderColor: T.border, background: T.primarySoft, color: T.textSoft }}>
+                  <p className="font-medium" style={{ color: T.dark }}>Nenhum horário livre encontrado para este terapeuta nos próximos 30 dias.</p>
+                  <p>Experimente selecionar outro terapeuta ou entre em contato pelo WhatsApp.</p>
+                </div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto pr-1 space-y-2.5 rounded-xl border p-2.5" style={{ borderColor: T.border, background: "rgba(0,0,0,0.015)" }}>
+                  {groupedSlots.map((group) => (
+                    <div key={group.date} className="space-y-1.5">
+                      <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.dark }}>
+                        <CalendarDays className="w-3.5 h-3.5" style={{ color: T.primary }} />
+                        {group.dateDisplay}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.times.map((time) => {
+                          const isSel = selectedSlot?.date === group.date && selectedSlot?.time === time;
+                          return (
+                            <button
+                              key={time}
+                              type="button"
+                              onClick={() =>
+                                setSelectedSlot({
+                                  date: group.date,
+                                  dateDisplay: group.dateDisplay,
+                                  time,
+                                  weekday: group.weekday,
+                                })
+                              }
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border-2 transition flex items-center gap-1"
+                              style={{
+                                borderColor: isSel ? T.primary : T.border,
+                                background: isSel ? T.primary : T.card,
+                                color: isSel ? "#ffffff" : T.text,
+                              }}
+                            >
+                              <Clock className="w-3 h-3" style={{ color: isSel ? "#ffffff" : T.primary }} />
+                              {time}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Modalidade */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider block mb-2" style={{ color: T.textSoft }}>
+                3. Modalidade
+              </label>
+              <div className="flex gap-2">
+                {(["presencial", "distancia"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setModality(m)}
+                    className="flex-1 py-2 rounded-xl border-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                    style={{
+                      borderColor: modality === m ? T.primary : T.border,
+                      background: modality === m ? T.primarySoft : "transparent",
+                      color: T.dark,
+                    }}
+                  >
+                    {m === "presencial" ? <MapPin className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                    {m === "presencial" ? "Presencial" : "A Distância"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Dados do paciente */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu nome completo</label>
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Nome e sobrenome"
+                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
+                  style={{ borderColor: T.border, color: T.text }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu WhatsApp</label>
+                <input
+                  type="tel"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(maskPhone(e.target.value))}
+                  placeholder="(84) 99999-9999"
+                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
+                  style={{ borderColor: T.border, color: T.text }}
+                />
+              </div>
+            </div>
+
+            {/* Resumo do agendamento */}
+            {selectedSlot && selectedTherapist && (
+              <div className="p-3 rounded-xl text-xs space-y-1" style={{ background: T.primarySoft, color: T.dark }}>
+                <p><strong>Terapia:</strong> {therapy.name}</p>
+                <p><strong>Terapeuta:</strong> {selectedTherapist.name}</p>
+                <p><strong>Quando:</strong> {selectedSlot.dateDisplay} às {selectedSlot.time}</p>
+              </div>
+            )}
+
+            {/* Botão de confirmação */}
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={!canSubmit}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition disabled:opacity-40 hover:brightness-110 shadow-sm"
+              style={{ background: T.primary }}
+            >
+              <MessageCircle className="w-4 h-4" /> Confirmar via WhatsApp
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TherapistsSection({
   therapists,
   therapies,
-  onBookWith,
+  appointments,
+  onCompleteBooking,
 }: {
   therapists: Therapist[];
   therapies: Therapy[];
-  onBookWith: (therapistId: string) => void;
+  appointments: Appointment[];
+  onCompleteBooking: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;
 }) {
   const [dayFilter, setDayFilter] = useState<string>("todos");
   const [query, setQuery] = useState("");
+  const [quickBookingTherapist, setQuickBookingTherapist] = useState<Therapist | null>(null);
 
   const visibleTherapists = therapists.filter((p) => !p.hidden);
 
@@ -1226,41 +2018,55 @@ function TherapistsSection({
               .filter(Boolean) as string[];
             const activeDays = WEEKDAYS.filter((d) => (p.availability[d]?.length ?? 0) > 0);
             return (
-              <div key={p.id} className="rounded-2xl p-5 border" style={{ borderColor: T.border, background: T.card }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <TherapistAvatar therapist={p} />
-                  <div>
-                    <h3 className="font-semibold" style={{ color: T.dark }}>{p.name}</h3>
-                    <p className="text-xs" style={{ color: T.textSoft }}>
-                      {specialtyNames.length > 0 ? specialtyNames.join(" · ") : "Terapias Integrativas"}
-                    </p>
+              <div key={p.id} className="rounded-2xl p-5 border flex flex-col justify-between" style={{ borderColor: T.border, background: T.card }}>
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <TherapistAvatar therapist={p} />
+                    <div>
+                      <h3 className="font-semibold" style={{ color: T.dark }}>{p.name}</h3>
+                      <p className="text-xs" style={{ color: T.textSoft }}>
+                        {specialtyNames.length > 0 ? specialtyNames.join(" · ") : "Terapias Integrativas"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {activeDays.length === 0 && (
+                      <span className="text-xs" style={{ color: T.textSoft }}>Sem horários cadastrados</span>
+                    )}
+                    {activeDays.map((d) => (
+                      <span
+                        key={d}
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{ background: T.primarySoft, color: T.dark }}
+                      >
+                        {d} · {p.availability[d].length} horário{p.availability[d].length > 1 ? "s" : ""}
+                      </span>
+                    ))}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {activeDays.length === 0 && (
-                    <span className="text-xs" style={{ color: T.textSoft }}>Sem horários cadastrados</span>
-                  )}
-                  {activeDays.map((d) => (
-                    <span
-                      key={d}
-                      className="text-xs px-2 py-1 rounded-full"
-                      style={{ background: T.primarySoft, color: T.dark }}
-                    >
-                      {d} · {p.availability[d].length} horário{p.availability[d].length > 1 ? "s" : ""}
-                    </span>
-                  ))}
-                </div>
                 <button
-                  onClick={() => onBookWith(p.id)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+                  onClick={() => setQuickBookingTherapist(p)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition hover:brightness-110 mt-2"
                   style={{ background: T.primary }}
                 >
-                  Agendar com {p.name.split(" ")[0]} <ArrowRight className="w-4 h-4" />
+                  <Zap className="w-4 h-4 text-amber-300" /> Agendar com {p.name.split(" ")[0]} <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             );
           })}
         </div>
+      )}
+
+      {quickBookingTherapist && (
+        <QuickTherapistBookingModal
+          therapist={quickBookingTherapist}
+          therapies={therapies}
+          appointments={appointments}
+          onClose={() => setQuickBookingTherapist(null)}
+          onComplete={(appt) => {
+            onCompleteBooking(appt);
+          }}
+        />
       )}
     </section>
   );
@@ -1317,17 +2123,26 @@ function BookingWizard({
 
   const visibleTherapies = useMemo(() => {
     const list = sortByName(therapies.filter((t) => !t.hidden));
-    // Se o usuário veio com terapeuta pré-selecionado e o terapeuta tem especialidades definidas,
-    // priorizamos exibir as terapias que este terapeuta atende
-    if (therapistId && !presetTherapyId) {
+    // Se um terapeuta estiver selecionado e ele tiver especialidades cadastradas,
+    // restringe as terapias apenas às especialidades que esse terapeuta atende
+    if (therapistId) {
       const th = therapists.find((p) => p.id === therapistId);
       if (th && th.specialties.length > 0) {
-        const matching = list.filter((t) => th.specialties.includes(t.id));
-        if (matching.length > 0) return matching;
+        return list.filter((t) => th.specialties.includes(t.id));
       }
     }
     return list;
-  }, [therapies, therapistId, presetTherapyId, therapists]);
+  }, [therapies, therapistId, therapists]);
+
+  // Se a terapia atualmente selecionada não estiver na lista de visíveis do terapeuta, desfaz a seleção
+  useEffect(() => {
+    if (therapyId && therapistId) {
+      const th = therapists.find((p) => p.id === therapistId);
+      if (th && th.specialties.length > 0 && !th.specialties.includes(therapyId)) {
+        setTherapyId(null);
+      }
+    }
+  }, [therapyId, therapistId, therapists]);
 
   const filteredTherapies = useMemo(() => {
     const q = therapySearch.trim().toLowerCase();
@@ -1908,10 +2723,16 @@ function AdminAppointments({
   therapies: Therapy[];
   therapists: Therapist[];
 }) {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const sorted = [...appointments].sort((a, b) => (a.date + a.time > b.date + b.time ? 1 : -1));
 
   const setStatus = (id: string, status: BookingStatus) => {
     setAppointments(appointments.map((a) => (a.id === id ? { ...a, status } : a)));
+  };
+
+  const handleDelete = (id: string) => {
+    setAppointments(appointments.filter((item) => item.id !== id));
+    setConfirmDeleteId(null);
   };
 
   if (sorted.length === 0) return <EmptyState text="Nenhum agendamento registrado ainda." />;
@@ -1929,6 +2750,8 @@ function AdminAppointments({
         const capitalizedWeekday = weekdayAbbr ? weekdayAbbr.charAt(0).toUpperCase() + weekdayAbbr.slice(1) : "";
         const formattedDateStr = dateObj ? dateObj.toLocaleDateString("pt-BR") : a.date;
         const dateDisplay = capitalizedWeekday ? `${capitalizedWeekday} ${formattedDateStr}` : formattedDateStr;
+
+        const isConfirmingDelete = confirmDeleteId === a.id;
 
         const waMsg =
           `Olá ${clientFirstName}! Aqui é a Sheyla do CTV, sobre sua solicitação para agendamento:\n\n` +
@@ -1973,6 +2796,37 @@ function AdminAppointments({
               >
                 <Phone className="w-4 h-4" /> WhatsApp
               </a>
+
+              {isConfirmingDelete ? (
+                <div className="flex items-center gap-1.5 bg-rose-50 p-1 rounded-xl border border-rose-200 animate-[fadeIn_.15s_ease]">
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(a.id)}
+                    className="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition"
+                  >
+                    Confirmar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="p-1.5 text-xs rounded-lg border bg-white hover:bg-black/5 text-gray-700 transition"
+                    style={{ borderColor: T.border }}
+                    title="Cancelar"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(a.id)}
+                  className="p-2 rounded-lg border hover:bg-rose-50 text-rose-600 transition"
+                  style={{ borderColor: T.border }}
+                  title="Excluir agendamento"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         );
@@ -2995,13 +3849,15 @@ function VibrationalHero({ onStart }: { onStart: () => void }) {
       <p className="text-sm sm:text-base max-w-md mx-auto mb-7" style={{ color: T.textSoft }}>
         Terapias vibracionais conduzidas com presença e cuidado, presencial ou a distância.
       </p>
-      <button
-        onClick={onStart}
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition hover:brightness-110 hover:-translate-y-0.5"
-        style={{ background: T.primary }}
-      >
-        <Calendar className="w-4 h-4" /> Agendar minha sessão
-      </button>
+      <div className="flex items-center justify-center gap-3 flex-wrap">
+        <button
+          onClick={onStart}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white transition hover:brightness-110 hover:-translate-y-0.5 shadow-sm"
+          style={{ background: T.primary }}
+        >
+          <Sparkles className="w-4 h-4" /> Conhecer Terapias & Agendar
+        </button>
+      </div>
     </div>
   );
 }
@@ -3009,7 +3865,7 @@ function VibrationalHero({ onStart }: { onStart: () => void }) {
 /* =========================================================================
    NAVEGAÇÃO
    ========================================================================= */
-type View = "inicio" | "agendar" | "terapias" | "terapeutas" | "sac" | "admin";
+type View = "inicio" | "terapias" | "terapeutas" | "sac" | "admin";
 
 /* =========================================================================
    PÁGINA PÚBLICA — SAC (Perguntas frequentes)
@@ -3060,7 +3916,6 @@ function FAQPage({ faqs }: { faqs: FAQItem[] }) {
 function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const items: { id: View; label: string; icon: React.ElementType }[] = [
-    { id: "agendar", label: "Agendar", icon: Calendar },
     { id: "terapias", label: "Terapias", icon: LayoutGrid },
     { id: "terapeutas", label: "Terapeutas", icon: Users },
     { id: "sac", label: "SAC", icon: MessageCircle },
@@ -3161,8 +4016,6 @@ export default function App() {
   );
 
   const [view, setView] = useState<View>("inicio");
-  const [presetTherapyId, setPresetTherapyId] = useState<string | null>(null);
-  const [presetTherapistId, setPresetTherapistId] = useState<string | null>(null);
 
   const [a11y, setA11y] = useState<A11yState>({ fontScale: 1, highContrast: false, rulerActive: false });
   const [isSpeakingPage, setIsSpeakingPage] = useState(false);
@@ -3175,12 +4028,6 @@ export default function App() {
       document.documentElement.style.fontSize = '';
     };
   }, [a11y.fontScale]);
-
-  const goBook = (opts?: { therapyId?: string; therapistId?: string }) => {
-    setPresetTherapyId(opts?.therapyId ?? null);
-    setPresetTherapistId(opts?.therapistId ?? null);
-    setView("agendar");
-  };
 
   const handleBookingComplete = (appt: Omit<Appointment, "id" | "status" | "createdAt">) => {
     setAppointments([
@@ -3243,13 +4090,12 @@ export default function App() {
       <main ref={mainRef} className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {view === "inicio" && (
           <>
-            <VibrationalHero onStart={() => goBook()} />
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            <VibrationalHero onStart={() => setView("terapias")} />
+            <div className="grid sm:grid-cols-3 gap-4 mb-10">
               {[
-                { icon: Sparkles, label: "Terapias", desc: "Conheça nossas práticas", action: () => setView("terapias") },
-                { icon: Users, label: "Terapeutas", desc: "Nossos voluntários", action: () => setView("terapeutas") },
-                { icon: Calendar, label: "Agendar", desc: "Marque em 3 passos", action: () => goBook() },
-                { icon: MessageCircle, label: "SAC", desc: "Perguntas frequentes", action: () => setView("sac") },
+                { icon: Sparkles, label: "Terapias", desc: "Catálogo completo com agendamento rápido", action: () => setView("terapias") },
+                { icon: Users, label: "Terapeutas", desc: "Nossos voluntários e horários disponíveis", action: () => setView("terapeutas") },
+                { icon: MessageCircle, label: "SAC & Dúvidas", desc: "Perguntas frequentes e suporte", action: () => setView("sac") },
               ].map((c, i) => (
                 <button key={i} onClick={c.action} className="text-left rounded-2xl p-5 border transition hover:-translate-y-0.5 hover:shadow-md" style={{ borderColor: T.border, background: T.card }}>
                   <c.icon className="w-5 h-5 mb-3" style={{ color: T.primary }} />
@@ -3261,23 +4107,22 @@ export default function App() {
           </>
         )}
 
-        {view === "agendar" && (
-          <BookingWizard
+        {view === "terapias" && (
+          <TherapyCatalog
             therapies={therapies}
             therapists={therapists}
             appointments={appointments}
-            presetTherapyId={presetTherapyId}
-            presetTherapistId={presetTherapistId}
-            onComplete={handleBookingComplete}
+            onCompleteBooking={handleBookingComplete}
           />
         )}
 
-        {view === "terapias" && (
-          <TherapyCatalog therapies={therapies} onBook={(therapyId) => goBook({ therapyId })} />
-        )}
-
         {view === "terapeutas" && (
-          <TherapistsSection therapists={therapists} therapies={therapies} onBookWith={(therapistId) => goBook({ therapistId })} />
+          <TherapistsSection
+            therapists={therapists}
+            therapies={therapies}
+            appointments={appointments}
+            onCompleteBooking={handleBookingComplete}
+          />
         )}
 
         {view === "sac" && <FAQPage faqs={faqs} />}
