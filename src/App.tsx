@@ -6,27 +6,25 @@ import {
   Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
   Plus, MessageCircle, Phone, User, ArrowRight, ArrowDown, Loader2, ShieldCheck,
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw,
-  GripVertical, ChevronUp, ChevronDown, Zap, AlertCircle, Info
+  GripVertical, ChevronUp, ChevronDown, Zap, AlertCircle, Info, FileSpreadsheet,
+  AlertTriangle, Ban, Globe, History, PhoneCall
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
+import { ExcelExportModal } from "./components/ExcelExportModal";
+import {
+  Modality,
+  IconKey,
+  Therapy,
+  Therapist,
+  BookingStatus,
+  Appointment,
+  FAQItem,
+  WEEKDAYS,
+  T,
+  formatTwoNames,
+} from "./types";
 
 /* =========================================================================
-   TEMA — Portal CTV (Centro de Terapias Vibracionais)
-   Paleta: verde vegetal acolhedor sobre fundo neutro suave.
-   ========================================================================= */
-const T = {
-  bg: "#F7F9F6",
-  card: "#FFFFFF",
-  primary: "#558B2F",
-  primaryLight: "#E7EFDF",
-  primarySoft: "#F0F5EB",
-  dark: "#2C521B",
-  text: "#2C3A28",
-  textSoft: "#5B6B57",
-  border: "#E1E9DA",
-  amber: "#B98900",
-  red: "#B3452C",
-};/* =========================================================================
    COMPONENTE DE LOGOTIPO (Circular, sem contorno/frame, bg verde suave)
    ========================================================================= */
 function Logo({
@@ -126,63 +124,6 @@ function Logo({
 
 const WHATSAPP_NUMBER = "558499040049";
 const ADMIN_PASSWORD = "ctv2024";
-const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-
-/* =========================================================================
-   TIPOS
-   ========================================================================= */
-type Modality = "presencial" | "distancia" | "ambas";
-type IconKey = "sparkles" | "handheart" | "users" | "gem" | "flower";
-
-interface Therapy {
-  id: string;
-  name: string;
-  icon: IconKey;
-  summary: string;
-  description: string;
-  benefits: string[];
-  duration: string;
-  contribution: string;
-  modality: Modality;
-  hidden: boolean;
-  isSeed?: boolean;
-}
-
-interface Therapist {
-  id: string;
-  name: string;
-  photoUrl?: string;
-  modality?: Modality; // "presencial" | "distancia" | "ambas"
-  specialties: string[]; // therapy ids
-  availability: Record<string, string[]>; // dia da semana -> lista de horários (ex.: "Segunda": ["09:00","10:00"])
-  unavailableDates?: string[]; // datas específicas (YYYY-MM-DD) em que o terapeuta, excepcionalmente, não atende
-  hidden: boolean;
-  isSeed?: boolean;
-}
-
-type BookingStatus = "pendente" | "confirmado" | "cancelado";
-
-interface Appointment {
-  id: string;
-  therapyId: string;
-  therapistId: string;
-  date: string;
-  time: string;
-  modality: "presencial" | "distancia";
-  clientName: string;
-  clientPhone: string;
-  status: BookingStatus;
-  createdAt: string;
-  isSeed?: boolean;
-}
-
-interface FAQItem {
-  id: string;
-  question: string;
-  answer: string;
-  hidden: boolean;
-  isSeed?: boolean;
-}
 
 const ICONS: Record<IconKey, React.ElementType> = {
   sparkles: Sparkles,
@@ -307,6 +248,14 @@ function normalizeTherapy(raw: any): Therapy {
 
 /** Corrige registros de agendamento salvos por versões antigas, garantindo campos mínimos válidos. */
 function normalizeAppointment(raw: any): Appointment {
+  const validStatuses: BookingStatus[] = [
+    "pendente",
+    "confirmado",
+    "cancelado",
+    "faltou_1x",
+    "faltou_2x",
+    "faltou_3x",
+  ];
   return {
     id: raw?.id ?? genId("ap"),
     therapyId: raw?.therapyId ?? "",
@@ -316,7 +265,8 @@ function normalizeAppointment(raw: any): Appointment {
     modality: raw?.modality === "distancia" ? "distancia" : "presencial",
     clientName: raw?.clientName ?? "",
     clientPhone: raw?.clientPhone ?? "",
-    status: ["pendente", "confirmado", "cancelado"].includes(raw?.status) ? raw.status : "pendente",
+    secondaryPhone: typeof raw?.secondaryPhone === "string" ? raw.secondaryPhone : "",
+    status: validStatuses.includes(raw?.status) ? raw.status : "pendente",
     createdAt: raw?.createdAt ?? new Date().toISOString(),
     isSeed: raw?.isSeed,
   };
@@ -489,11 +439,65 @@ function sortByName<T extends { name: string }>(arr: T[]): T[] {
 }
 
 /* =========================================================================
-   FORMATAÇÃO & SANITIZAÇÃO DE WHATSAPP (Resistente a espaçamento e erros)
+   FORMATAÇÃO, VALIDAÇÃO & SANITIZAÇÃO DE TELEFONE (Nacional & Internacional)
    ========================================================================= */
-/** Máscara amigável e tolerante de telefone brasileiro: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX */
+const COUNTRY_DIAL_PRESETS = [
+  { code: "+55", label: "Brasil", flag: "🇧🇷", placeholder: "(84) 99999-9999", ddi: "55" },
+  { code: "+1", label: "EUA / Canadá", flag: "🇺🇸", placeholder: "(519) 694-7472", ddi: "1" },
+  { code: "+351", label: "Portugal", flag: "🇵🇹", placeholder: "912 345 678", ddi: "351" },
+  { code: "+34", label: "Espanha", flag: "🇪🇸", placeholder: "612 345 678", ddi: "34" },
+  { code: "+44", label: "Reino Unido", flag: "🇬🇧", placeholder: "7911 123456", ddi: "44" },
+  { code: "+39", label: "Itália", flag: "🇮🇹", placeholder: "312 345 6789", ddi: "39" },
+  { code: "+49", label: "Alemanha", flag: "🇩🇪", placeholder: "151 23456789", ddi: "49" },
+  { code: "+54", label: "Argentina", flag: "🇦🇷", placeholder: "9 11 1234-5678", ddi: "54" },
+  { code: "+", label: "Outro Internacional", flag: "🌍", placeholder: "+código número", ddi: "" },
+];
+
+/** Máscara amigável e tolerante de telefone brasileiro e internacional */
 function maskPhone(value: string): string {
-  const digits = (value || "").replace(/\D/g, "").slice(0, 11);
+  if (!value) return "";
+  const raw = String(value).trim();
+
+  // Se o número começa com '+' ou formato internacional explícito
+  if (raw.startsWith("+")) {
+    const digits = raw.replace(/[^\d+]/g, "");
+    
+    // +1 EUA / Canadá: +1 (XXX) XXX-XXXX
+    if (digits.startsWith("+1")) {
+      const nums = digits.slice(2).replace(/\D/g, "").slice(0, 10);
+      if (!nums) return "+1 ";
+      if (nums.length <= 3) return `+1 (${nums}`;
+      if (nums.length <= 6) return `+1 (${nums.slice(0, 3)}) ${nums.slice(3)}`;
+      return `+1 (${nums.slice(0, 3)}) ${nums.slice(3, 6)}-${nums.slice(6)}`;
+    }
+    
+    // +351 Portugal: +351 XXX XXX XXX
+    if (digits.startsWith("+351")) {
+      const nums = digits.slice(4).replace(/\D/g, "").slice(0, 9);
+      if (!nums) return "+351 ";
+      if (nums.length <= 3) return `+351 ${nums}`;
+      if (nums.length <= 6) return `+351 ${nums.slice(0, 3)} ${nums.slice(3)}`;
+      return `+351 ${nums.slice(0, 3)} ${nums.slice(3, 6)} ${nums.slice(6)}`;
+    }
+    
+    // +55 Brasil explícito com +
+    if (digits.startsWith("+55")) {
+      const nums = digits.slice(3).replace(/\D/g, "").slice(0, 11);
+      if (!nums) return "+55 ";
+      if (nums.length <= 2) return `+55 (${nums}`;
+      if (nums.length <= 6) return `+55 (${nums.slice(0, 2)}) ${nums.slice(2)}`;
+      if (nums.length <= 10) return `+55 (${nums.slice(0, 2)}) ${nums.slice(2, 6)}-${nums.slice(6)}`;
+      return `+55 (${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7)}`;
+    }
+
+    // Outros países com +
+    const nums = digits.slice(1).replace(/\D/g, "");
+    if (nums.length === 0) return "+";
+    return `+${nums.replace(/(\d{3})(?=\d)/g, "$1 ")}`;
+  }
+
+  // Padrão Brasileiro (sem '+')
+  const digits = raw.replace(/\D/g, "").slice(0, 11);
   if (!digits) return "";
   if (digits.length <= 2) return `(${digits}`;
   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
@@ -502,26 +506,83 @@ function maskPhone(value: string): string {
 }
 
 /** 
+ * Validação inteligente de digitação de telefone para evitar erros
+ */
+function validatePhoneQuality(phone: string): {
+  isValid: boolean;
+  message: string;
+  type: "success" | "warning" | "info";
+} {
+  const raw = (phone || "").trim();
+  if (!raw) {
+    return { isValid: false, message: "Digite o número com DDD", type: "info" };
+  }
+
+  // Internacional com '+'
+  if (raw.startsWith("+")) {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length >= 8) {
+      return { isValid: true, message: "Número internacional válido", type: "success" };
+    }
+    return { isValid: false, message: "Número internacional incompleto", type: "warning" };
+  }
+
+  // Nacional sem '+'
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 || digits.length === 11) {
+    return { isValid: true, message: "Número com DDD válido", type: "success" };
+  }
+  if (digits.length === 8 || digits.length === 9) {
+    return {
+      isValid: false,
+      message: "⚠️ Falta digitar o DDD (ex.: 84)",
+      type: "warning",
+    };
+  }
+  if (digits.length < 8) {
+    return {
+      isValid: false,
+      message: "Telefone incompleto",
+      type: "warning",
+    };
+  }
+  return { isValid: true, message: "Telefone preenchido", type: "success" };
+}
+
+/** 
  * Higieniza qualquer entrada de telefone para o padrão internacional numérico exato exigido pelo wa.me
- * Aceita espaços, hífens, parênteses, ausência de DDD ou ausência de DDI (55)
+ * Aceita números do Brasil e do exterior (+1 519..., +351..., etc.)
  */
 function sanitizePhoneForWhatsApp(phone: string): string {
-  let digits = (phone || "").replace(/\D/g, "");
+  const raw = (phone || "").trim();
+  if (!raw) return "";
+  const isExplicitIntl = raw.startsWith("+");
+  let digits = raw.replace(/\D/g, "");
   if (!digits) return "";
+  
+  // Se começou explicitamente com '+' internacional, preserva o número exato com DDI
+  if (isExplicitIntl) {
+    return digits;
+  }
   
   // Remove zero à esquerda caso o usuário digite ex.: 084 99999-9999
   if (digits.startsWith("0")) {
     digits = digits.slice(1);
   }
   
-  // Se digitou apenas 8 ou 9 dígitos locais sem DDD, adiciona o DDD padrão de Natal/RN (84)
-  if (digits.length === 8 || digits.length === 9) {
-    digits = "84" + digits;
+  // Se já digitou com 55 no início (12 ou 13 dígitos no Brasil)
+  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+    return digits;
   }
   
-  // Se tem 10 ou 11 dígitos (DDD + número), adiciona o DDI do Brasil (55)
+  // Se digitou apenas 8 ou 9 dígitos locais sem DDD, adiciona o DDD padrão de Natal/RN (84) e DDI 55
+  if (digits.length === 8 || digits.length === 9) {
+    return "5584" + digits;
+  }
+  
+  // Se tem 10 ou 11 dígitos (DDD + número no Brasil), adiciona o DDI do Brasil (55)
   if (digits.length === 10 || digits.length === 11) {
-    digits = "55" + digits;
+    return "55" + digits;
   }
   
   return digits;
@@ -532,6 +593,166 @@ function getWhatsAppUrl(phone: string, message?: string): string {
   const cleanPhone = sanitizePhoneForWhatsApp(phone);
   const textParam = message ? `?text=${encodeURIComponent(message)}` : "";
   return `https://wa.me/${cleanPhone || WHATSAPP_NUMBER}${textParam}`;
+}
+
+/**
+ * Componente amigável de Input de Telefone com suporte a Internacional, Prevenção de Erros de Digitação
+ * e campo expansível para Telefone Secundário / Contato de Recado
+ */
+function SmartPhoneInput({
+  value,
+  onChange,
+  secondaryValue,
+  onChangeSecondary,
+  required = true,
+  label = "Seu WhatsApp / Telefone",
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  secondaryValue?: string;
+  onChangeSecondary?: (val: string) => void;
+  required?: boolean;
+  label?: string;
+}) {
+  const [showSecondary, setShowSecondary] = useState<boolean>(() => !!secondaryValue);
+  const [selectedCountry, setSelectedCountry] = useState<string>("+55");
+  const validation = validatePhoneQuality(value);
+
+  const handleCountryChange = (dialCode: string) => {
+    setSelectedCountry(dialCode);
+    if (dialCode === "+55") {
+      // Remove prefixos internacionais e mantém dígitos locais
+      const digits = value.replace(/\D/g, "");
+      onChange(maskPhone(digits.slice(0, 11)));
+    } else if (dialCode === "+") {
+      onChange("+");
+    } else {
+      const cleanDigits = value.replace(/\D/g, "");
+      onChange(maskPhone(`${dialCode} ${cleanDigits}`));
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    // Se o usuário digitou '+', ajusta o seletor
+    if (raw.startsWith("+1")) setSelectedCountry("+1");
+    else if (raw.startsWith("+351")) setSelectedCountry("+351");
+    else if (raw.startsWith("+34")) setSelectedCountry("+34");
+    else if (raw.startsWith("+")) setSelectedCountry("+");
+    else setSelectedCountry("+55");
+
+    onChange(maskPhone(raw));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-semibold block" style={{ color: T.text }}>
+            {label} {required && <span className="text-rose-600">*</span>}
+          </label>
+          <div className="flex items-center gap-1 text-[11px]" style={{ color: T.textSoft }}>
+            <Globe className="w-3 h-3" />
+            <select
+              value={selectedCountry}
+              onChange={(e) => handleCountryChange(e.target.value)}
+              className="bg-transparent text-[11px] font-semibold outline-none cursor-pointer border-b border-dashed"
+              style={{ borderColor: T.border, color: T.dark }}
+              title="Mudar país do telefone"
+            >
+              {COUNTRY_DIAL_PRESETS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.label} ({c.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="relative">
+          <input
+            type="tel"
+            value={value}
+            onChange={handleInputChange}
+            placeholder={
+              selectedCountry === "+55"
+                ? "(84) 99999-9999"
+                : COUNTRY_DIAL_PRESETS.find((p) => p.code === selectedCountry)?.placeholder || "+código número"
+            }
+            className={`w-full px-3 py-2 rounded-xl border text-xs outline-none transition focus:ring-2 ${
+              validation.type === "warning" && value.length > 2
+                ? "border-amber-400 bg-amber-50/30"
+                : validation.isValid && value.length >= 8
+                ? "border-emerald-400 bg-emerald-50/20"
+                : ""
+            }`}
+            style={{
+              borderColor: validation.type === "warning" && value.length > 2 ? "#F59E0B" : T.border,
+              color: T.dark,
+            }}
+          />
+        </div>
+
+        {/* Feedback visual de digitação */}
+        {value.length > 0 && (
+          <p
+            className={`text-[11px] mt-1 flex items-center gap-1 font-medium ${
+              validation.type === "warning"
+                ? "text-amber-700 font-semibold"
+                : validation.type === "success"
+                ? "text-emerald-700"
+                : "text-gray-500"
+            }`}
+          >
+            {validation.type === "warning" && <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />}
+            {validation.type === "success" && <Check className="w-3 h-3 text-emerald-600 shrink-0" />}
+            <span>{validation.message}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Opção para telefone secundário / contato de recado */}
+      {onChangeSecondary && (
+        <div>
+          {!showSecondary ? (
+            <button
+              type="button"
+              onClick={() => setShowSecondary(true)}
+              className="text-[11px] font-semibold text-emerald-800 hover:underline flex items-center gap-1 mt-1 transition"
+            >
+              <Plus className="w-3 h-3" /> Adicionar 2º telefone / contato para recado
+            </button>
+          ) : (
+            <div className="pt-1.5 border-t border-dashed animate-[fadeIn_.15s_ease]" style={{ borderColor: T.border }}>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold block" style={{ color: T.textSoft }}>
+                  Telefone Secundário / Recado (Opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSecondary(false);
+                    onChangeSecondary("");
+                  }}
+                  className="text-[10px] text-rose-600 hover:underline"
+                >
+                  Remover
+                </button>
+              </div>
+              <input
+                type="tel"
+                value={secondaryValue || ""}
+                onChange={(e) => onChangeSecondary(maskPhone(e.target.value))}
+                placeholder="Ex.: Telefone do cônjuge, responsável ou fixo"
+                className="w-full px-3 py-1.5 rounded-xl border text-xs outline-none focus:ring-2"
+                style={{ borderColor: T.border, color: T.dark }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* =========================================================================
@@ -590,17 +811,20 @@ function ModalityBadge({ modality }: { modality: Modality | "presencial" | "dist
 }
 
 function StatusBadge({ status }: { status: BookingStatus }) {
-  const map: Record<BookingStatus, { label: string; bg: string; fg: string; icon: React.ElementType }> = {
+  const map: Record<BookingStatus, { label: string; bg: string; fg: string; border?: string; icon: React.ElementType }> = {
     pendente: { label: "Pendente", bg: "#FCF3D9", fg: "#8A6A00", icon: CalendarClock },
     confirmado: { label: "Confirmado", bg: "#E2F1D8", fg: T.dark, icon: CalendarCheck },
     cancelado: { label: "Cancelado", bg: "#F6E1DA", fg: T.red, icon: CalendarX },
+    faltou_1x: { label: "Faltou (1ª vez)", bg: "#FEF3C7", fg: "#B45309", border: "#FDE68A", icon: AlertTriangle },
+    faltou_2x: { label: "Faltou (2ª vez)", bg: "#FFEDD5", fg: "#C2410C", border: "#FDBA74", icon: AlertCircle },
+    faltou_3x: { label: "Faltou (3ª vez+)", bg: "#FEE2E2", fg: "#B91C1C", border: "#FCA5A5", icon: Ban },
   };
-  const m = map[status];
+  const m = map[status] || map.pendente;
   const IconEl = m.icon;
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-      style={{ background: m.bg, color: m.fg }}
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border"
+      style={{ background: m.bg, color: m.fg, borderColor: m.border || "transparent" }}
     >
       <IconEl className="w-3.5 h-3.5" />
       {m.label}
@@ -1314,6 +1538,7 @@ function QuickTherapistBookingModal({
   const [modality, setModality] = useState<"presencial" | "distancia">("presencial");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
+  const [secondaryPhone, setSecondaryPhone] = useState("");
   const [sent, setSent] = useState(false);
 
   // Calcula os horários dos próximos 30 dias
@@ -1354,6 +1579,7 @@ function QuickTherapistBookingModal({
 
   const buildMessage = () => {
     const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
+    const secFormatted = secondaryPhone.trim() ? maskPhone(secondaryPhone) : "";
     return (
       `Olá! Gostaria de solicitar um agendamento rápido no CTV\n\n` +
       `Terapeuta: ${therapist.name}\n` +
@@ -1361,13 +1587,16 @@ function QuickTherapistBookingModal({
       `Data: ${selectedSlot?.dateDisplay.replace(/^[A-Za-z]+,\s*/, "")} às ${selectedSlot?.time}\n` +
       `Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
       `Meu nome: ${clientName.trim()}\n` +
-      `Meu WhatsApp: ${phoneFormatted}\n\n` +
-      `Aguardo seu contato!`
+      `Meu WhatsApp: ${phoneFormatted}\n` +
+      (secFormatted ? `Telefone secundário / recado: ${secFormatted}\n` : "") +
+      `\nAguardo seu contato!`
     );
   };
 
   const handleConfirm = () => {
     if (!selectedSlot || !selectedTherapyId) return;
+
+    const formattedName = formatTwoNames(clientName.trim());
 
     onComplete({
       therapyId: selectedTherapyId,
@@ -1375,8 +1604,9 @@ function QuickTherapistBookingModal({
       date: selectedSlot.date,
       time: selectedSlot.time,
       modality,
-      clientName: clientName.trim(),
+      clientName: formattedName,
       clientPhone: maskPhone(clientPhone) || clientPhone.trim(),
+      secondaryPhone: secondaryPhone.trim() ? maskPhone(secondaryPhone) : "",
     });
 
     const url = getWhatsAppUrl(WHATSAPP_NUMBER, buildMessage());
@@ -1586,29 +1816,29 @@ function QuickTherapistBookingModal({
             </div>
 
             {/* 4. Dados do paciente */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu nome completo</label>
+                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>
+                  Seu nome (dois nomes) <span className="text-rose-600">*</span>
+                </label>
                 <input
                   type="text"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Nome e sobrenome"
+                  placeholder="Ex.: Maria Silva"
                   className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
-                  style={{ borderColor: T.border, color: T.text }}
+                  style={{ borderColor: T.border, color: T.dark }}
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu WhatsApp</label>
-                <input
-                  type="tel"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(maskPhone(e.target.value))}
-                  placeholder="(84) 99999-9999"
-                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
-                  style={{ borderColor: T.border, color: T.text }}
-                />
-              </div>
+
+              <SmartPhoneInput
+                value={clientPhone}
+                onChange={setClientPhone}
+                secondaryValue={secondaryPhone}
+                onChangeSecondary={setSecondaryPhone}
+                label="Seu WhatsApp / Telefone"
+                required
+              />
             </div>
 
             {/* Resumo do agendamento */}
@@ -1672,6 +1902,7 @@ function QuickTherapyBookingModal({
   });
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
+  const [secondaryPhone, setSecondaryPhone] = useState("");
   const [sent, setSent] = useState(false);
 
   const selectedTherapist = therapists.find((p) => p.id === selectedTherapistId);
@@ -1713,6 +1944,7 @@ function QuickTherapyBookingModal({
 
   const buildMessage = () => {
     const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
+    const secFormatted = secondaryPhone.trim() ? maskPhone(secondaryPhone) : "";
     return (
       `Olá! Gostaria de solicitar um agendamento no CTV\n\n` +
       `Terapia: ${therapy.name}\n` +
@@ -1720,13 +1952,16 @@ function QuickTherapyBookingModal({
       `Data: ${selectedSlot?.dateDisplay.replace(/^[A-Za-z]+,\s*/, "")} às ${selectedSlot?.time}\n` +
       `Modalidade: ${modality === "presencial" ? "Presencial" : "A Distância"}\n\n` +
       `Meu nome: ${clientName.trim()}\n` +
-      `Meu WhatsApp: ${phoneFormatted}\n\n` +
-      `Aguardo seu contato!`
+      `Meu WhatsApp: ${phoneFormatted}\n` +
+      (secFormatted ? `Telefone secundário / recado: ${secFormatted}\n` : "") +
+      `\nAguardo seu contato!`
     );
   };
 
   const handleConfirm = () => {
     if (!selectedSlot || !selectedTherapistId) return;
+
+    const formattedName = formatTwoNames(clientName.trim());
 
     onComplete({
       therapyId: therapy.id,
@@ -1734,8 +1969,9 @@ function QuickTherapyBookingModal({
       date: selectedSlot.date,
       time: selectedSlot.time,
       modality,
-      clientName: clientName.trim(),
+      clientName: formattedName,
       clientPhone: maskPhone(clientPhone) || clientPhone.trim(),
+      secondaryPhone: secondaryPhone.trim() ? maskPhone(secondaryPhone) : "",
     });
 
     const url = getWhatsAppUrl(WHATSAPP_NUMBER, buildMessage());
@@ -1954,29 +2190,29 @@ function QuickTherapyBookingModal({
             </div>
 
             {/* 4. Dados do paciente */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu nome completo</label>
+                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>
+                  Seu nome (dois nomes) <span className="text-rose-600">*</span>
+                </label>
                 <input
                   type="text"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Nome e sobrenome"
+                  placeholder="Ex.: Maria Silva"
                   className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
-                  style={{ borderColor: T.border, color: T.text }}
+                  style={{ borderColor: T.border, color: T.dark }}
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold block mb-1" style={{ color: T.text }}>Seu WhatsApp</label>
-                <input
-                  type="tel"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(maskPhone(e.target.value))}
-                  placeholder="(84) 99999-9999"
-                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none focus:ring-2"
-                  style={{ borderColor: T.border, color: T.text }}
-                />
-              </div>
+
+              <SmartPhoneInput
+                value={clientPhone}
+                onChange={setClientPhone}
+                secondaryValue={secondaryPhone}
+                onChangeSecondary={setSecondaryPhone}
+                label="Seu WhatsApp / Telefone"
+                required
+              />
             </div>
 
             {/* Resumo do agendamento */}
@@ -2324,7 +2560,40 @@ function AdminAppointments({
   therapists: Therapist[];
 }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const sorted = [...appointments].sort((a, b) => (a.date + a.time > b.date + b.time ? 1 : -1));
+  const [showExcelModal, setShowExcelModal] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("todos");
+
+  const sorted = useMemo(() => {
+    return [...appointments].sort((a, b) => (a.date + a.time > b.date + b.time ? 1 : -1));
+  }, [appointments]);
+
+  const filteredAppointments = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return sorted.filter((a) => {
+      if (filterStatus === "faltas") {
+        if (!a.status.startsWith("faltou")) return false;
+      } else if (filterStatus !== "todos" && a.status !== filterStatus) {
+        return false;
+      }
+
+      if (!q) return true;
+      const th = therapists.find((p) => p.id === a.therapistId)?.name.toLowerCase() || "";
+      const tp = therapies.find((t) => t.id === a.therapyId)?.name.toLowerCase() || "";
+      const client = a.clientName.toLowerCase();
+      const phone = a.clientPhone.toLowerCase();
+      const secPhone = (a.secondaryPhone || "").toLowerCase();
+      const dt = a.date.toLowerCase();
+      return (
+        client.includes(q) ||
+        phone.includes(q) ||
+        secPhone.includes(q) ||
+        th.includes(q) ||
+        tp.includes(q) ||
+        dt.includes(q)
+      );
+    });
+  }, [sorted, searchTerm, filterStatus, therapists, therapies]);
 
   const setStatus = (id: string, status: BookingStatus) => {
     setAppointments(appointments.map((a) => (a.id === id ? { ...a, status } : a)));
@@ -2335,102 +2604,275 @@ function AdminAppointments({
     setConfirmDeleteId(null);
   };
 
-  if (sorted.length === 0) return <EmptyState text="Nenhum agendamento registrado ainda." />;
+  // Contadores
+  const countConfirmed = appointments.filter((a) => a.status === "confirmado").length;
+  const countPending = appointments.filter((a) => a.status === "pendente").length;
+  const countCancelled = appointments.filter((a) => a.status === "cancelado").length;
+  const countLack1 = appointments.filter((a) => a.status === "faltou_1x").length;
+  const countLack2 = appointments.filter((a) => a.status === "faltou_2x").length;
+  const countLack3 = appointments.filter((a) => a.status === "faltou_3x").length;
+  const totalLacks = countLack1 + countLack2 + countLack3;
+
+  /** Identifica se o assistido tem faltas registradas em outros agendamentos cadastrados */
+  const getClientLackHistoryCount = (clientName: string, clientPhone: string, currentApptId: string) => {
+    const cName = clientName.trim().toLowerCase();
+    const cPhone = clientPhone.replace(/\D/g, "");
+    return appointments.filter((a) => {
+      if (a.id === currentApptId) return false;
+      const isLack = a.status === "faltou_1x" || a.status === "faltou_2x" || a.status === "faltou_3x";
+      if (!isLack) return false;
+      const matchPhone = cPhone.length >= 8 && a.clientPhone.replace(/\D/g, "").includes(cPhone.slice(-8));
+      const matchName = cName.length >= 3 && a.clientName.trim().toLowerCase() === cName;
+      return matchPhone || matchName;
+    }).length;
+  };
 
   return (
-    <div className="space-y-3">
-      {sorted.map((a) => {
-        const therapy = therapies.find((t) => t.id === a.therapyId);
-        const therapist = therapists.find((p) => p.id === a.therapistId);
-        const clientFirstName = a.clientName.trim().split(" ")[0];
-        const dateObj = a.date ? new Date(a.date + "T00:00:00") : null;
-        const weekdayAbbr = dateObj
-          ? dateObj.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")
-          : "";
-        const capitalizedWeekday = weekdayAbbr ? weekdayAbbr.charAt(0).toUpperCase() + weekdayAbbr.slice(1) : "";
-        const formattedDateStr = dateObj ? dateObj.toLocaleDateString("pt-BR") : a.date;
-        const dateDisplay = capitalizedWeekday ? `${capitalizedWeekday} ${formattedDateStr}` : formattedDateStr;
-
-        const isConfirmingDelete = confirmDeleteId === a.id;
-
-        const waMsg =
-          `Olá ${clientFirstName}! Aqui é a Sheyla do CTV, sobre sua solicitação para agendamento:\n\n` +
-          `*${therapy?.name || "Terapia"}*\n` +
-          `Terapeuta: ${therapist?.name || ""}\n` +
-          `${dateDisplay}\n` +
-          `às ${a.time}\n\n` +
-          `Posso confirmar agora?\n` +
-          `Se precisar de mais alguma informação, pode enviar um áudio que responderei o mais breve possível.`;
-        return (
-          <div key={a.id} className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center gap-4 justify-between" style={{ borderColor: T.border, background: T.card }}>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                <p className="font-semibold" style={{ color: T.dark }}>{a.clientName}</p>
-                <StatusBadge status={a.status} />
-              </div>
-              <p className="text-sm" style={{ color: T.text }}>{therapy?.name} · {therapist?.name}</p>
-              <p className="text-xs mt-1" style={{ color: T.textSoft }}>
-                {new Date(a.date + "T00:00:00").toLocaleDateString("pt-BR")} às {a.time} · {a.modality === "presencial" ? "Presencial" : "A Distância"}
-              </p>
-              <p className="text-xs mt-0.5 font-medium" style={{ color: T.dark }}>
-                WhatsApp: {maskPhone(a.clientPhone) || a.clientPhone}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={a.status}
-                onChange={(e) => setStatus(a.id, e.target.value as BookingStatus)}
-                className="text-sm rounded-lg border px-2.5 py-2 outline-none"
-                style={{ borderColor: T.border, color: T.text }}
-              >
-                <option value="pendente">Pendente</option>
-                <option value="confirmado">Confirmado</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-              <a
-                href={getWhatsAppUrl(a.clientPhone, waMsg)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg text-white transition hover:brightness-110"
-                style={{ background: "#25D366" }}
-              >
-                <Phone className="w-4 h-4" /> WhatsApp
-              </a>
-
-              {isConfirmingDelete ? (
-                <div className="flex items-center gap-1.5 bg-rose-50 p-1 rounded-xl border border-rose-200 animate-[fadeIn_.15s_ease]">
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(a.id)}
-                    className="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition"
-                  >
-                    Confirmar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="p-1.5 text-xs rounded-lg border bg-white hover:bg-black/5 text-gray-700 transition"
-                    style={{ borderColor: T.border }}
-                    title="Cancelar"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteId(a.id)}
-                  className="p-2 rounded-lg border hover:bg-rose-50 text-rose-600 transition"
-                  style={{ borderColor: T.border }}
-                  title="Excluir agendamento"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+    <div className="space-y-4">
+      {/* Barra de Estatísticas & Ações do Topo */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-4 rounded-2xl border bg-white shadow-xs" style={{ borderColor: T.border }}>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl bg-gray-100" style={{ color: T.dark }}>
+            Total: {appointments.length}
           </div>
-        );
-      })}
+          <div className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200">
+            {countConfirmed} Confirmados
+          </div>
+          {countPending > 0 && (
+            <div className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200">
+              {countPending} Pendentes
+            </div>
+          )}
+          {totalLacks > 0 && (
+            <div className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-orange-50 text-orange-800 border border-orange-200 flex items-center gap-1">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />
+              <span>{totalLacks} Faltas ({countLack1 > 0 ? `${countLack1} 1x` : ""}{countLack2 > 0 ? ` · ${countLack2} 2x` : ""}{countLack3 > 0 ? ` · ${countLack3} 3x+` : ""})</span>
+            </div>
+          )}
+          {countCancelled > 0 && (
+            <div className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-800 border border-rose-200">
+              {countCancelled} Cancelados
+            </div>
+          )}
+        </div>
+
+        {/* Botão de Exportação Excel (.xlsx) */}
+        <button
+          type="button"
+          onClick={() => setShowExcelModal(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition shadow-sm hover:brightness-110 hover:-translate-y-0.5"
+          style={{ background: "#1D6F42" }}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Gerar Planilha Excel (.xlsx)</span>
+        </button>
+      </div>
+
+      {/* Filtros de Busca & Status */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: T.textSoft }} />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por paciente, telefone, terapeuta, terapia ou data..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs font-medium outline-none bg-white"
+            style={{ borderColor: T.border, color: T.dark }}
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-3 py-2.5 rounded-xl border text-xs font-medium outline-none bg-white font-semibold"
+          style={{ borderColor: T.border, color: T.dark }}
+        >
+          <option value="todos">Todos os status</option>
+          <option value="pendente">Apenas Pendentes</option>
+          <option value="confirmado">Apenas Confirmados</option>
+          <option value="faltas">Todas as Faltas ({totalLacks})</option>
+          <option value="faltou_1x">Faltou (1ª vez)</option>
+          <option value="faltou_2x">Faltou (2ª vez)</option>
+          <option value="faltou_3x">Faltou (3ª vez ou +)</option>
+          <option value="cancelado">Apenas Cancelados</option>
+        </select>
+      </div>
+
+      {filteredAppointments.length === 0 ? (
+        <EmptyState text={sorted.length === 0 ? "Nenhum agendamento registrado ainda." : "Nenhum agendamento corresponde aos filtros."} />
+      ) : (
+        <div className="space-y-3">
+          {filteredAppointments.map((a) => {
+            const therapy = therapies.find((t) => t.id === a.therapyId);
+            const therapist = therapists.find((p) => p.id === a.therapistId);
+            const clientFirstName = a.clientName.trim().split(" ")[0];
+            const dateObj = a.date ? new Date(a.date + "T00:00:00") : null;
+            const weekdayAbbr = dateObj
+              ? dateObj.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")
+              : "";
+            const capitalizedWeekday = weekdayAbbr ? weekdayAbbr.charAt(0).toUpperCase() + weekdayAbbr.slice(1) : "";
+            const formattedDateStr = dateObj ? dateObj.toLocaleDateString("pt-BR") : a.date;
+            const dateDisplay = capitalizedWeekday ? `${capitalizedWeekday} ${formattedDateStr}` : formattedDateStr;
+
+            const isConfirmingDelete = confirmDeleteId === a.id;
+            const previousLacks = getClientLackHistoryCount(a.clientName, a.clientPhone, a.id);
+            const isLackStatus = a.status === "faltou_1x" || a.status === "faltou_2x" || a.status === "faltou_3x";
+
+            // Mensagem de WhatsApp inteligente dependendo do status
+            let waMsg = "";
+            if (isLackStatus) {
+              waMsg =
+                `Olá ${clientFirstName}! Aqui é do CTV (Centro de Terapias Vibracionais).\n\n` +
+                `Notamos que você não pôde comparecer à sua sessão de *${therapy?.name || "Terapia"}* com ${therapist?.name || ""} marcada para ${dateDisplay} às ${a.time}.\n\n` +
+                `Está tudo bem por aí? Caso deseje remarcar para uma nova data, estamos à sua inteira disposição!`;
+            } else {
+              waMsg =
+                `Olá ${clientFirstName}! Aqui é a Sheyla do CTV, sobre sua solicitação para agendamento:\n\n` +
+                `*${therapy?.name || "Terapia"}*\n` +
+                `Terapeuta: ${therapist?.name || ""}\n` +
+                `${dateDisplay}\n` +
+                `às ${a.time}\n\n` +
+                `Posso confirmar agora?\n` +
+                `Se precisar de mais alguma informação, pode enviar um áudio que responderei o mais breve possível.`;
+            }
+
+            return (
+              <div
+                key={a.id}
+                className="rounded-2xl p-4 border flex flex-col lg:flex-row lg:items-center gap-4 justify-between transition hover:shadow-xs"
+                style={{
+                  borderColor: isLackStatus ? "#FCD34D" : T.border,
+                  background: isLackStatus ? "#FFFDF5" : T.card,
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <p className="font-bold text-sm sm:text-base" style={{ color: T.dark }}>
+                      {a.clientName}
+                    </p>
+                    <StatusBadge status={a.status} />
+                  </div>
+
+                  <p className="text-sm font-medium" style={{ color: T.text }}>
+                    {therapy?.name} · <span className="font-semibold">{therapist?.name}</span>
+                  </p>
+                  
+                  <p className="text-xs mt-1 font-medium" style={{ color: T.textSoft }}>
+                    📅 {dateDisplay} às {a.time} · {a.modality === "presencial" ? "🏢 Presencial" : "🌐 A Distância"}
+                  </p>
+
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
+                    <span className="font-semibold flex items-center gap-1" style={{ color: T.dark }}>
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      {maskPhone(a.clientPhone) || a.clientPhone}
+                    </span>
+
+                    {a.secondaryPhone && (
+                      <span className="text-xs px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 flex items-center gap-1 border" style={{ borderColor: T.border }}>
+                        <PhoneCall className="w-3 h-3 text-gray-500" />
+                        Recado: {maskPhone(a.secondaryPhone)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Alerta de Histórico de Faltas do Assistido */}
+                  {previousLacks > 0 && (
+                    <div className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 mt-2 font-medium">
+                      <History className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span>
+                        <strong>Atenção da Recepção:</strong> Este assistido já possui {previousLacks} falta(s) registrada(s) em outros atendimentos.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  {/* Seletor com todos os Níveis de Falta */}
+                  <select
+                    value={a.status}
+                    onChange={(e) => setStatus(a.id, e.target.value as BookingStatus)}
+                    className="text-xs font-semibold rounded-xl border px-3 py-2 outline-none bg-white shadow-2xs cursor-pointer"
+                    style={{ borderColor: T.border, color: T.dark }}
+                  >
+                    <option value="pendente">⏳ Pendente</option>
+                    <option value="confirmado">✅ Confirmado</option>
+                    <option value="faltou_1x">⚠️ Faltou (1ª vez)</option>
+                    <option value="faltou_2x">🟠 Faltou (2ª vez)</option>
+                    <option value="faltou_3x">🔴 Faltou (3ª vez+)</option>
+                    <option value="cancelado">❌ Cancelado</option>
+                  </select>
+
+                  {/* WhatsApp Principal */}
+                  <a
+                    href={getWhatsAppUrl(a.clientPhone, waMsg)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-white transition hover:brightness-110 shadow-xs"
+                    style={{ background: "#25D366" }}
+                    title="Conversar no WhatsApp"
+                  >
+                    <Phone className="w-3.5 h-3.5" /> WhatsApp
+                  </a>
+
+                  {/* WhatsApp Secundário se existir */}
+                  {a.secondaryPhone && (
+                    <a
+                      href={getWhatsAppUrl(a.secondaryPhone, waMsg)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-xl text-emerald-800 bg-emerald-50 border border-emerald-200 transition hover:bg-emerald-100"
+                      title="WhatsApp do Telefone de Recado"
+                    >
+                      <PhoneCall className="w-3 h-3" /> Recado
+                    </a>
+                  )}
+
+                  {isConfirmingDelete ? (
+                    <div className="flex items-center gap-1 bg-rose-50 p-1 rounded-xl border border-rose-200 animate-[fadeIn_.15s_ease]">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(a.id)}
+                        className="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="p-1.5 text-xs rounded-lg border bg-white hover:bg-black/5 text-gray-700 transition"
+                        style={{ borderColor: T.border }}
+                        title="Cancelar"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(a.id)}
+                      className="p-2 rounded-xl border hover:bg-rose-50 text-rose-600 transition"
+                      style={{ borderColor: T.border }}
+                      title="Excluir agendamento"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal de Exportação Excel */}
+      {showExcelModal && (
+        <ExcelExportModal
+          isOpen={showExcelModal}
+          onClose={() => setShowExcelModal(false)}
+          appointments={appointments}
+          therapists={therapists}
+          therapies={therapies}
+        />
+      )}
     </div>
   );
 }
