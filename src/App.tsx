@@ -1581,7 +1581,7 @@ function QuickTherapistBookingModal({
     const phoneFormatted = maskPhone(clientPhone) || clientPhone.trim();
     const secFormatted = secondaryPhone.trim() ? maskPhone(secondaryPhone) : "";
     return (
-      `Olá! Gostaria de solicitar um agendamento rápido no CTV\n\n` +
+      `Olá! Gostaria de solicitar um agendamento no CTV\n\n` +
       `Terapeuta: ${therapist.name}\n` +
       `Terapia: ${selectedTherapy?.name || "Terapia Integrativa"}\n` +
       `Data: ${selectedSlot?.dateDisplay.replace(/^[A-Za-z]+,\s*/, "")} às ${selectedSlot?.time}\n` +
@@ -1657,7 +1657,7 @@ function QuickTherapistBookingModal({
               Solicitação enviada com sucesso!
             </h3>
             <p className="text-sm mb-6 leading-relaxed" style={{ color: T.textSoft }}>
-              Abrimos o WhatsApp do CTV com todos os dados da sessão com <strong>{therapist.name}</strong> para confirmação imediata.
+              Enviamos sua solicitação para o nosso whatsapp com todos os dados da sessão com <strong>{therapist.name}</strong>. Entraremos em contato o mais breve possível para confirmação.
             </p>
             <button
               onClick={onClose}
@@ -2026,7 +2026,7 @@ function QuickTherapyBookingModal({
               Solicitação enviada com sucesso!
             </h3>
             <p className="text-sm mb-6 leading-relaxed" style={{ color: T.textSoft }}>
-              Abrimos o WhatsApp do CTV com todos os dados da sua sessão de <strong>{therapy.name}</strong> para confirmação imediata.
+              Enviamos sua solicitação para o nosso whatsapp com todos os dados da sessão com <strong>{selectedTherapist?.name || "o(a) terapeuta"}</strong>. Entraremos em contato o mais breve possível para confirmação.
             </p>
             <button
               onClick={onClose}
