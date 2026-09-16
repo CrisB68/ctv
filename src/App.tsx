@@ -303,7 +303,12 @@ function isLegacySeed(item: any): boolean {
 /* =========================================================================
    PERSISTÊNCIA — Nuvem (Firebase Firestore) + Cache Local (localStorage)
    ========================================================================= */
-function useCloudPersistedState<T extends { id: string }>(collectionName: string, key: string, initial: T[]) {
+function useCloudPersistedState<T extends { id: string }>(
+  collectionName: string,
+  key: string,
+  initial: T[],
+  onSyncError?: (hasError: boolean) => void
+) {
   const [state, setState] = useState<T[]>(() => {
     try {
       const raw = window.localStorage.getItem(key);
@@ -322,6 +327,10 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
   });
 
   const previousIdsRef = useRef<Set<string>>(new Set(state.map((s) => s.id)));
+  // Itens gravados localmente que ainda não foram confirmados pela nuvem.
+  // Evita que um snapshot do Firestore "apague" da tela uma reserva que acabou
+  // de ser criada mas ainda não terminou de sincronizar (ou falhou e será retentada).
+  const pendingRef = useRef<Map<string, T>>(new Map());
 
   // Sincronização em tempo real com o Firebase Firestore
   useEffect(() => {
@@ -330,10 +339,14 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
       (cloudItems) => {
         if (cloudItems && cloudItems.length > 0) {
           const cleaned = cloudItems.filter((it: any) => !isLegacySeed(it));
-          setState(cleaned);
-          previousIdsRef.current = new Set(cleaned.map((s) => s.id));
+          const cloudIds = new Set(cleaned.map((c) => c.id));
+          // Mescla com itens locais pendentes que a nuvem ainda não confirmou
+          const stillPending = Array.from(pendingRef.current.values()).filter((p) => !cloudIds.has(p.id));
+          const merged = stillPending.length > 0 ? [...cleaned, ...stillPending] : cleaned;
+          setState(merged);
+          previousIdsRef.current = new Set(merged.map((s) => s.id));
           try {
-            window.localStorage.setItem(key, JSON.stringify(cleaned));
+            window.localStorage.setItem(key, JSON.stringify(merged));
           } catch {
             // falha silenciosa de cache
           }
@@ -354,7 +367,10 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
               }
             }
           } catch {}
-          setState([]);
+          // Preserva itens pendentes mesmo que a nuvem esteja vazia
+          const stillPending = Array.from(pendingRef.current.values());
+          setState(stillPending);
+          previousIdsRef.current = new Set(stillPending.map((s) => s.id));
         }
       },
       initial
@@ -373,13 +389,21 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
         // falha silenciosa
       }
 
+      // Marca como pendente até a gravação na nuvem ser confirmada
+      cleaned.forEach((item) => pendingRef.current.set(item.id, item));
+
       // Sincroniza adições/atualizações na Nuvem Firestore
+      let hadError = false;
       const newIds = new Set(cleaned.map((v) => v.id));
       for (const item of cleaned) {
         try {
           await saveDocument(collectionName, item.id, item);
+          pendingRef.current.delete(item.id);
         } catch (err) {
+          hadError = true;
           console.error(`Erro ao sincronizar ${collectionName}/${item.id} com Firestore:`, err);
+          // Mantém em pendingRef: o dado continua visível na tela e será tentado
+          // novamente na próxima gravação, em vez de simplesmente desaparecer.
         }
       }
 
@@ -389,13 +413,15 @@ function useCloudPersistedState<T extends { id: string }>(collectionName: string
           try {
             await removeDocument(collectionName, oldId);
           } catch (err) {
+            hadError = true;
             console.error(`Erro ao remover ${collectionName}/${oldId} do Firestore:`, err);
           }
         }
       }
       previousIdsRef.current = newIds;
+      onSyncError?.(hadError);
     },
-    [collectionName, key]
+    [collectionName, key, onSyncError]
   );
 
   return [state, persist] as const;
@@ -4053,10 +4079,24 @@ function Header({ view, setView }: { view: View; setView: (v: View) => void }) {
    APP
    ========================================================================= */
 export default function App() {
-  const [therapiesRaw, setTherapies] = useCloudPersistedState<Therapy>("therapies", "ctv:therapies", SEED_THERAPIES);
-  const [therapistsRaw, setTherapists] = useCloudPersistedState<Therapist>("therapists", "ctv:therapists", SEED_THERAPISTS);
-  const [appointmentsRaw, setAppointments] = useCloudPersistedState<Appointment>("appointments", "ctv:appointments", SEED_APPOINTMENTS);
-  const [faqsRaw, setFaqs] = useCloudPersistedState<FAQItem>("faqs", "ctv:faqs", SEED_FAQS);
+  // Controla se alguma coleção falhou ao gravar de verdade na nuvem, para
+  // mostrar um aviso visível em vez de a falha ficar escondida só no console.
+  const [syncErrorCollections, setSyncErrorCollections] = useState<Set<string>>(new Set());
+  const reportSyncError = useCallback((collectionName: string) => (hasError: boolean) => {
+    setSyncErrorCollections((prev) => {
+      const has = prev.has(collectionName);
+      if (hasError === has) return prev;
+      const next = new Set(prev);
+      if (hasError) next.add(collectionName);
+      else next.delete(collectionName);
+      return next;
+    });
+  }, []);
+
+  const [therapiesRaw, setTherapies] = useCloudPersistedState<Therapy>("therapies", "ctv:therapies", SEED_THERAPIES, reportSyncError("therapies"));
+  const [therapistsRaw, setTherapists] = useCloudPersistedState<Therapist>("therapists", "ctv:therapists", SEED_THERAPISTS, reportSyncError("therapists"));
+  const [appointmentsRaw, setAppointments] = useCloudPersistedState<Appointment>("appointments", "ctv:appointments", SEED_APPOINTMENTS, reportSyncError("appointments"));
+  const [faqsRaw, setFaqs] = useCloudPersistedState<FAQItem>("faqs", "ctv:faqs", SEED_FAQS, reportSyncError("faqs"));
 
   // Corrige dados salvos por uma versão anterior do app, evitando tela branca e limpando dados antigos de teste.
   const therapies = useMemo(
@@ -4145,6 +4185,17 @@ export default function App() {
         active={a11y.rulerActive}
         onClose={() => setA11y((s) => ({ ...s, rulerActive: false }))}
       />
+
+      {syncErrorCollections.size > 0 && (
+        <div
+          role="alert"
+          className="text-center text-xs sm:text-sm font-medium px-4 py-2"
+          style={{ background: T.red, color: "#fff" }}
+        >
+          Não foi possível salvar algumas informações na nuvem agora. Seus dados continuam aqui na tela — verifique
+          sua conexão com a internet; tentaremos novamente na próxima alteração.
+        </div>
+      )}
 
       <Header view={view} setView={setView} />
 

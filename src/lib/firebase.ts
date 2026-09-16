@@ -12,18 +12,31 @@ import {
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
+/**
+ * Configuração do Firebase — lida das variáveis de ambiente (VITE_FIREBASE_*),
+ * definidas no Netlify (Site configuration → Environment variables).
+ *
+ * Antes, esses valores eram fixos e apontavam para o projeto Firebase provisionado
+ * automaticamente pelo AI Studio ("zinc-replica-lxctm"), cuja cota é muito mais
+ * restritiva que um projeto próprio e travava a gravação após poucas reservas.
+ * Agora o app usa o projeto Firebase próprio configurado no Netlify.
+ */
 export const firebaseConfig = {
-  projectId: "zinc-replica-lxctm",
-  appId: "1:529124697282:web:9f6eb659dcc231cb27c75b",
-  apiKey: "AIzaSyCcXvGJmS2XLMbNHGqLZ5fyFrgMipLkV5g",
-  authDomain: "zinc-replica-lxctm.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-portalctvagendam-6e5ac8ed-ad0b-4609-bce7-f49cefa27949",
-  storageBucket: "zinc-replica-lxctm.firebasestorage.app",
-  messagingSenderId: "529124697282",
-  measurementId: "",
-  oAuthClientId: "529124697282-6mvbvrtp959m4e8cep77bvao6aub86qu.apps.googleusercontent.com",
-  recaptchaSiteKey: ""
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID ?? "",
 };
+
+if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {
+  // Ajuda a diagnosticar rapidamente se o deploy do Netlify não recebeu as variáveis VITE_FIREBASE_*
+  console.error(
+    "Configuração do Firebase incompleta: verifique se as variáveis VITE_FIREBASE_* estão definidas no Netlify (Site configuration → Environment variables) e se o site foi reimplantado (Trigger deploy) depois de configurá-las."
+  );
+}
 
 // Set Firestore log level to silent to prevent noisy transient warnings in sandbox/iframe environments
 setLogLevel('silent');
@@ -31,16 +44,12 @@ setLogLevel('silent');
 // Initialize Firebase SDK with resilient settings for browser and iframe environments
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 
-export const db = initializeFirestore(
-  app,
-  {
-    experimentalForceLongPolling: true,
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  },
-  firebaseConfig.firestoreDatabaseId
-);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
 
 export const auth = getAuth(app);
 
