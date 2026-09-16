@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
-  X, Download, Calendar, FileSpreadsheet, Sparkles, Check, ChevronLeft,
-  ChevronRight, Eye, Info, CheckCircle2, ListFilter
+  X, Download, FileSpreadsheet, ChevronLeft,
+  ChevronRight, Eye, CheckCircle2
 } from "lucide-react";
 import { Appointment, Therapist, Therapy, T } from "../types";
 import {
@@ -10,7 +10,6 @@ import {
   generateAndDownloadExcel,
   getWeekDates,
   getMonthDates,
-  getWeekdayNamePt,
   formatDateBr,
 } from "../utils/excelExport";
 
@@ -90,10 +89,6 @@ export function ExcelExportModal({
     const d = new Date();
     d.setDate(d.getDate() + 7);
     setReferenceDate(d.toISOString().slice(0, 10));
-    setPreviewDayIndex(0);
-  };
-  const setThisMonth = () => {
-    setReferenceDate(todayStr);
     setPreviewDayIndex(0);
   };
 

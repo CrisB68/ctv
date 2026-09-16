@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
-  Sparkles, HandHeart, Users, Gem, Flower2, Calendar, Clock, MapPin, Wifi,
-  Search, X, ChevronRight, ChevronLeft, Check, Volume2, VolumeX, Ruler,
+  Sparkles, HandHeart, Users, Gem, Flower2, Clock, MapPin, Wifi,
+  Search, X, ChevronRight, Check, Volume2, VolumeX, Ruler,
   Contrast, Type, Settings2, Lock, Unlock, LayoutGrid, ClipboardList,
   Database, Download, Upload, Trash2, Pencil, EyeOff, Eye,
-  Plus, MessageCircle, Phone, User, ArrowRight, ArrowDown, Loader2, ShieldCheck,
+  Plus, MessageCircle, Phone, ArrowRight, ArrowDown, ShieldCheck,
   CalendarCheck, CalendarX, CalendarClock, Menu, Image as ImageIcon, CalendarDays, Cloud, RefreshCw,
   GripVertical, ChevronUp, ChevronDown, Zap, AlertCircle, Info, FileSpreadsheet,
   AlertTriangle, Ban, Globe, History, PhoneCall
@@ -171,24 +171,6 @@ function genId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function weekdayNameFromDate(dateStr: string): string | null {
-  if (!dateStr) return null;
-  const [year, month, day] = dateStr.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  const d = new Date(year, month - 1, day);
-  const dayIndex = d.getDay(); // 0 = Domingo, 1 = Segunda...
-  if (dayIndex === 0) return null; // Domingo
-  const map: Record<number, string> = {
-    1: "Segunda",
-    2: "Terça",
-    3: "Quarta",
-    4: "Quinta",
-    5: "Sexta",
-    6: "Sábado",
-  };
-  return map[dayIndex] ?? null;
-}
-
 /**
  * Corrige registros de terapeuta salvos por uma versão antiga do app (que tinha
  * `bio` e `days` em vez de `photoUrl`/`availability`), evitando tela branca quando
@@ -341,10 +323,10 @@ function useCloudPersistedState<T extends { id: string }>(
           const cleaned = cloudItems.filter((it: any) => !isLegacySeed(it));
           const cloudIds = new Set(cleaned.map((c) => c.id));
           // Mescla com itens locais pendentes que a nuvem ainda não confirmou
-          const stillPending = Array.from(pendingRef.current.values()).filter((p) => !cloudIds.has(p.id));
+          const stillPending = Array.from(pendingRef.current.values()).filter((p: T) => !cloudIds.has(p.id));
           const merged = stillPending.length > 0 ? [...cleaned, ...stillPending] : cleaned;
           setState(merged);
-          previousIdsRef.current = new Set(merged.map((s) => s.id));
+          previousIdsRef.current = new Set(merged.map((s: T) => s.id));
           try {
             window.localStorage.setItem(key, JSON.stringify(merged));
           } catch {
@@ -370,7 +352,7 @@ function useCloudPersistedState<T extends { id: string }>(
           // Preserva itens pendentes mesmo que a nuvem esteja vazia
           const stillPending = Array.from(pendingRef.current.values());
           setState(stillPending);
-          previousIdsRef.current = new Set(stillPending.map((s) => s.id));
+          previousIdsRef.current = new Set(stillPending.map((s: T) => s.id));
         }
       },
       initial
@@ -422,31 +404,6 @@ function useCloudPersistedState<T extends { id: string }>(
       onSyncError?.(hadError);
     },
     [collectionName, key, onSyncError]
-  );
-
-  return [state, persist] as const;
-}
-
-function usePersistedState<T>(key: string, initial: T) {
-  const [state, setState] = useState<T>(() => {
-    try {
-      const raw = window.localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : initial;
-    } catch {
-      return initial;
-    }
-  });
-
-  const persist = useCallback(
-    (value: T) => {
-      setState(value);
-      try {
-        window.localStorage.setItem(key, JSON.stringify(value));
-      } catch {
-        // falha silenciosa — dado permanece em memória nesta sessão
-      }
-    },
-    [key]
   );
 
   return [state, persist] as const;
@@ -1412,7 +1369,6 @@ function TherapyCatalog({
         <QuickTherapyBookingModal
           therapy={quickBookingTherapy}
           therapists={therapists}
-          therapies={therapies}
           appointments={appointments}
           onClose={() => setQuickBookingTherapy(null)}
           onComplete={(appt) => {
@@ -1898,14 +1854,12 @@ function QuickTherapistBookingModal({
 function QuickTherapyBookingModal({
   therapy,
   therapists,
-  therapies,
   appointments,
   onClose,
   onComplete,
 }: {
   therapy: Therapy;
   therapists: Therapist[];
-  therapies: Therapy[];
   appointments: Appointment[];
   onClose: () => void;
   onComplete: (appt: Omit<Appointment, "id" | "status" | "createdAt">) => void;

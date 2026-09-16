@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { Appointment, Therapist, Therapy, WEEKDAYS, formatTwoNames } from "../types";
+import { Appointment, Therapist, Therapy, formatTwoNames } from "../types";
 
 export interface ExcelExportOptions {
   mode: "semanal" | "mensal" | "dia";
