@@ -44,37 +44,12 @@ function Logo({
   rounded?: string;
   variant?: "soft" | "solid" | "white" | "transparent";
 }) {
-  const [customLogo, setCustomLogo] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem("ctv_custom_logo");
-    } catch {
-      return null;
-    }
-  });
+  // Fonte fixa: o SVG (nítido em qualquer tamanho, arquivo leve, ~22KB) é
+  // tentado primeiro; se por algum motivo falhar, cai para o PNG; se os dois
+  // falharem, mostra o texto "CTV" como último recurso. Sem upload nem
+  // localStorage — a logo é só esses dois arquivos em public/.
+  const candidateSources = ["/logo.svg", "/logo.png"];
   const [sourceIndex, setSourceIndex] = useState(0);
-
-  const candidateSources = useMemo(() => {
-    if (customLogo) return [customLogo, "/logo.svg", "/logo.png"];
-    return ["/logo.svg", "/logo.png"];
-  }, [customLogo]);
-
-  useEffect(() => {
-    const updateLogo = () => {
-      try {
-        const saved = localStorage.getItem("ctv_custom_logo");
-        setCustomLogo(saved);
-        setSourceIndex(0);
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener("ctv-logo-updated", updateLogo);
-    window.addEventListener("storage", updateLogo);
-    return () => {
-      window.removeEventListener("ctv-logo-updated", updateLogo);
-      window.removeEventListener("storage", updateLogo);
-    };
-  }, []);
 
   const widthStyle = typeof size === "number" ? `${size}px` : size;
   const heightStyle = typeof size === "number" ? `${size}px` : size;
@@ -3686,34 +3661,6 @@ function AdminBackup({
     }
   };
 
-  const logoFileRef = useRef<HTMLInputElement>(null);
-  const [currentLogo, setCurrentLogo] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem("ctv_custom_logo");
-    } catch {
-      return null;
-    }
-  });
-
-  const handleUploadLogo = async (file: File) => {
-    try {
-      const dataUrl = await fileToCompressedDataUrl(file, 800, 0.95);
-      localStorage.setItem("ctv_custom_logo", dataUrl);
-      setCurrentLogo(dataUrl);
-      window.dispatchEvent(new Event("ctv-logo-updated"));
-      setMessage("Logotipo atualizado com sucesso em todo o portal!");
-    } catch {
-      setMessage("Erro ao processar imagem da logo.");
-    }
-  };
-
-  const handleResetLogo = () => {
-    localStorage.removeItem("ctv_custom_logo");
-    setCurrentLogo(null);
-    window.dispatchEvent(new Event("ctv-logo-updated"));
-    setMessage("Logotipo redefinido para o padrão.");
-  };
-
   return (
     <div className="space-y-4 max-w-xl">
       {message && (
@@ -3723,48 +3670,6 @@ function AdminBackup({
         </div>
       )}
 
-      {/* Logotipo do Portal */}
-      <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
-        <p className="font-semibold mb-1.5" style={{ color: T.dark }}>Logotipo do CTV</p>
-        <p className="text-sm mb-4" style={{ color: T.textSoft }}>
-          O sistema carrega automaticamente imagens salvas na pasta <code>public/logo.png</code> ou <code>public/logo.svg</code>, ou você pode fazer upload direto da imagem oficial abaixo:
-        </p>
-        
-        <div className="flex items-center gap-4 p-3 rounded-xl border bg-white/60 mb-4" style={{ borderColor: T.border }}>
-          <Logo size={60} rounded="rounded-full" variant="soft" />
-          <div className="text-xs" style={{ color: T.textSoft }}>
-            <p className="font-medium" style={{ color: T.dark }}>Status da Logo:</p>
-            <p>{currentLogo ? "Usando logotipo personalizado (upload)" : "Usando imagem da pasta public/ ou símbolo padrão"}</p>
-          </div>
-        </div>
-
-        <input
-          ref={logoFileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/svg+xml,image/webp"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleUploadLogo(e.target.files[0])}
-        />
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => logoFileRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:brightness-110"
-            style={{ background: T.primary }}
-          >
-            <ImageIcon className="w-4 h-4" /> Enviar nova imagem da Logo
-          </button>
-          {currentLogo && (
-            <button
-              onClick={handleResetLogo}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition hover:bg-black/5"
-              style={{ borderColor: T.border, color: T.dark }}
-            >
-              <Trash2 className="w-4 h-4" /> Restaurar padrão
-            </button>
-          )}
-        </div>
-      </div>
       <div className="rounded-2xl border p-5" style={{ borderColor: T.border, background: T.card }}>
         <div className="flex items-center justify-between mb-2">
           <p className="font-semibold" style={{ color: T.dark }}>Banco de Dados em Nuvem</p>
