@@ -10,7 +10,13 @@ import {
   AlertTriangle, Ban, Globe, History, PhoneCall
 } from "lucide-react";
 import { subscribeToCollection, saveDocument, removeDocument } from "./lib/firebase";
-import { ExcelExportModal } from "./components/ExcelExportModal";
+// Carregado sob demanda: só baixa o código deste modal (e a biblioteca de
+// planilhas exceljs, que é pesada) no momento em que o Admin realmente clica
+// em "Exportar Excel" — reduz o tamanho do carregamento inicial do site para
+// todo mundo que só quer ver terapias/terapeutas/agendar.
+const ExcelExportModal = React.lazy(() =>
+  import("./components/ExcelExportModal").then((m) => ({ default: m.ExcelExportModal }))
+);
 import {
   Modality,
   IconKey,
@@ -2845,13 +2851,24 @@ function AdminAppointments({
 
       {/* Modal de Exportação Excel */}
       {showExcelModal && (
-        <ExcelExportModal
-          isOpen={showExcelModal}
-          onClose={() => setShowExcelModal(false)}
-          appointments={appointments}
-          therapists={therapists}
-          therapies={therapies}
-        />
+        <React.Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-2xl px-6 py-5 flex items-center gap-3 shadow-xl">
+                <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
+                <span className="text-sm font-medium text-stone-700">Carregando exportação...</span>
+              </div>
+            </div>
+          }
+        >
+          <ExcelExportModal
+            isOpen={showExcelModal}
+            onClose={() => setShowExcelModal(false)}
+            appointments={appointments}
+            therapists={therapists}
+            therapies={therapies}
+          />
+        </React.Suspense>
       )}
     </div>
   );

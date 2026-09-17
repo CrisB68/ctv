@@ -18,5 +18,20 @@ export default defineConfig(() => {
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Divide bibliotecas grandes em arquivos proprios, separados do codigo
+          // do app. Isso nao muda nenhum comportamento -- so permite que o
+          // navegador baixe e guarde em cache cada biblioteca separadamente
+          // (ex: o Firebase so precisa ser baixado de novo se ele mudar, nao a
+          // cada pequena alteracao no codigo do site).
+          manualChunks: {
+            firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+            icons: ['lucide-react'],
+          },
+        },
+      },
+    },
   };
 });
