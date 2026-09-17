@@ -985,7 +985,7 @@ function AccessibilityToolbar({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-5 left-5 z-50 flex flex-col items-start gap-3">
       {open && (
         <div
           className="w-72 rounded-2xl p-4 shadow-xl border animate-[riseIn_.22s_ease]"
@@ -1083,14 +1083,28 @@ function AccessibilityToolbar({
         </div>
       )}
 
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Abrir ferramentas de acessibilidade"
-        className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition hover:scale-105 active:scale-95"
-        style={{ background: T.primary }}
-      >
-        <Settings2 className="w-6 h-6" />
-      </button>
+      <div className="relative group">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-label="Abrir ferramentas de acessibilidade"
+          title="Acessibilidade"
+          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition hover:scale-105 active:scale-95"
+          style={{ background: T.primary }}
+        >
+          <Settings2 className="w-6 h-6" />
+        </button>
+        {/* Tooltip: nem todo mundo reconhece a engrenagem como "acessibilidade",
+            então deixamos o texto explícito ao passar o mouse (ou focar, no
+            teclado). Some automaticamente quando o painel já está aberto. */}
+        {!open && (
+          <span
+            className="pointer-events-none absolute bottom-1/2 translate-y-1/2 left-full ml-3 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100 group-focus-within:opacity-100"
+            style={{ background: T.dark }}
+          >
+            Acessibilidade
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -4175,6 +4189,10 @@ export default function App() {
         <Logo size={44} rounded="rounded-full" variant="soft" />
         <p className="text-xs" style={{ color: T.textSoft }}>Centro de Terapias Vibracionais · Natal, RN, Brasil · Cuidado, presença e equilíbrio.</p>
       </footer>
+      {/* Espaço reservado para o botão de acessibilidade (canto inferior) e o
+          selo "Powered by Netlify" (fora do nosso controle, injetado pela
+          hospedagem) não ficarem por cima do endereço acima. */}
+      <div className="h-20" aria-hidden="true" />
 
       <AccessibilityToolbar
         a11y={a11y}
