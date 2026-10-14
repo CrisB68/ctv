@@ -2540,7 +2540,12 @@ function AdminAppointments({
   const [filterStatus, setFilterStatus] = useState<string>("todos");
 
   const sorted = useMemo(() => {
-    return [...appointments].sort((a, b) => (a.date + a.time > b.date + b.time ? 1 : -1));
+    // Ordem decrescente: data/horário mais recente primeiro
+    return [...appointments].sort((a, b) => {
+      const ka = `${a.date} ${a.time}`;
+      const kb = `${b.date} ${b.time}`;
+      return kb.localeCompare(ka);
+    });
   }, [appointments]);
 
   const filteredAppointments = useMemo(() => {
@@ -2559,13 +2564,17 @@ function AdminAppointments({
       const phone = a.clientPhone.toLowerCase();
       const secPhone = (a.secondaryPhone || "").toLowerCase();
       const dt = a.date.toLowerCase();
+      // Data também no formato brasileiro (DD/MM/AAAA), para a busca aceitar "14", "14/10" ou "14/10/2026"
+      const [yy, mm, dd] = (a.date || "").split("-");
+      const dtBr = yy && mm && dd ? `${dd}/${mm}/${yy}` : "";
       return (
         client.includes(q) ||
         phone.includes(q) ||
         secPhone.includes(q) ||
         th.includes(q) ||
         tp.includes(q) ||
-        dt.includes(q)
+        dt.includes(q) ||
+        dtBr.includes(q)
       );
     });
   }, [sorted, searchTerm, filterStatus, therapists, therapies]);
